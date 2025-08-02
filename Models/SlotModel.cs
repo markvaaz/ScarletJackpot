@@ -28,6 +28,7 @@ internal class SlotModel {
   public Entity SlotChest { get; private set; }
   public Entity Slot { get; private set; }
   public bool IsRunning { get; private set; } = false;
+  public Entity CurrentPlayer { get; private set; } = Entity.Null;
 
   private static Entity _defaultStandEntity;
   public static Entity DefaultSlotEntity {
@@ -128,6 +129,11 @@ internal class SlotModel {
     ActionScheduler.DelayedFrames(() => StartStaggeredAnimation(), DELAYED_FRAMES);
   }
 
+  public void InitializeSlotAnimation(Entity player) {
+    CurrentPlayer = player;
+    InitializeSlotAnimation();
+  }
+
   private void StartStaggeredAnimation() {
     for (int i = 0; i < ItemColumns.Length; i++) {
       int columnIndex = i;
@@ -147,6 +153,10 @@ internal class SlotModel {
 
   private void AnimateColumnWithDelay(int column, int iteration, int frameSpeed, int columnIndex) {
     if (iteration >= ANIMATION_STOP_ITERATIONS) {
+      // Check if this is the last column to finish animating
+      if (columnIndex == ItemColumns.Length - 1) {
+        ProcessSlotResults();
+      }
       IsRunning = false;
       return;
     }
@@ -237,14 +247,38 @@ internal class SlotModel {
     used.Remove(default);
 
     // Try to get a weighted item that's not already in the column
-    var availableItems = TempSlotItems.WeightedItems.Where(kvp => !used.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+    var availableItems = SlotItems.WeightedItems.Where(kvp => !used.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
     if (availableItems.Count == 0) {
       // If all items are used, use the full weighted list
-      availableItems = TempSlotItems.WeightedItems;
+      availableItems = SlotItems.WeightedItems;
     }
 
     return GetWeightedRandomItem(availableItems, random);
+  }
+
+  // Novo método para controlar chances de vitória como cassino real
+  private static PrefabGUID SelectNewItemWithWinControl(List<PrefabGUID> currentItems, System.Random random, bool allowWinningCombination = true) {
+    var used = new HashSet<PrefabGUID>(currentItems);
+    used.Remove(default);
+
+    // Se não queremos permitir combinação vencedora, evitar itens que já estão na coluna
+    if (!allowWinningCombination && used.Count > 0) {
+      var availableItems = SlotItems.WeightedItems.Where(kvp => !used.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+      if (availableItems.Count > 0) {
+        return GetWeightedRandomItem(availableItems, random);
+      }
+    }
+
+    // Caso contrário, usar seleção normal com peso
+    var allAvailableItems = SlotItems.WeightedItems.Where(kvp => !used.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+    if (allAvailableItems.Count == 0) {
+      allAvailableItems = SlotItems.WeightedItems;
+    }
+
+    return GetWeightedRandomItem(allAvailableItems, random);
   }
 
   private static PrefabGUID GetWeightedRandomItem(Dictionary<PrefabGUID, int> weightedItems, System.Random random) {
@@ -289,6 +323,119 @@ internal class SlotModel {
     }, nextFrameSpeed);
   }
 
+  #region Win Detection and Rewards
+  private void ProcessSlotResults() {
+    var wins = DetectWins();
+    var raghandsWin = wins.ContainsValue(new PrefabGUID(1216450741)); // raghands GUID
+
+    if (raghandsWin) {
+      // Raghands steals all wins - no rewards
+      Log.Info("Raghands appeared! All wins stolen!");
+      return;
+    }
+
+    if (wins.Count > 0) {
+      Log.Info($"Player won on {wins.Count} line(s)!");
+      DeliverWinRewards(wins);
+    } else {
+      Log.Info("No wins this spin.");
+    }
+  }
+
+  private Dictionary<int, PrefabGUID> DetectWins() {
+    var wins = new Dictionary<int, PrefabGUID>();
+    var random = new System.Random();
+
+    for (int row = 0; row < TOTAL_ROWS; row++) {
+      var rowItems = GetRowItems(row);
+
+      // Check if all 3 items in the row are the same and not null
+      if (rowItems[0] != default && rowItems[0] == rowItems[1] && rowItems[1] == rowItems[2]) {
+
+        // Aplicar controle de probabilidade de vitória (como cassino real)
+        if (SlotItems.ShouldFormWinningLine(rowItems[0], random)) {
+          wins[row] = rowItems[0];
+          Log.Info($"Win detected on row {row}: {rowItems[0].GuidHash}");
+        } else {
+          Log.Info($"Potential win on row {row} blocked by RTP control: {rowItems[0].GuidHash}");
+          // Opcional: substituir um item para quebrar a linha
+          BreakWinningLine(row, random);
+        }
+      }
+    }
+
+    return wins;
+  }
+
+  // Método para quebrar linhas vencedoras (controle de RTP)
+  private void BreakWinningLine(int row, System.Random random) {
+    // Escolher uma coluna aleatória para substituir
+    int columnToBreak = random.Next(ItemColumns.Length);
+    int col = ItemColumns[columnToBreak];
+    int slotIndex = row * TOTAL_COLUMNS + col;
+
+    // Remover o item atual
+    InventoryService.RemoveItemAtSlot(SlotChest, slotIndex);
+
+    // Adicionar um item diferente
+    var currentRowItems = GetRowItems(row).ToList();
+    var newItem = SelectDifferentItem(currentRowItems[0], random);
+
+    InventoryService.AddWithMaxAmount(SlotChest, slotIndex, newItem, 1, 1);
+    SetAllItemsMaxAmount(SlotChest, 1);
+  }
+
+  private PrefabGUID SelectDifferentItem(PrefabGUID avoidItem, System.Random random) {
+    var availableItems = SlotItems.WeightedItems.Where(kvp => kvp.Key != avoidItem).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+    return GetWeightedRandomItem(availableItems, random);
+  }
+
+  private PrefabGUID[] GetRowItems(int row) {
+    var items = new PrefabGUID[3];
+
+    for (int i = 0; i < ItemColumns.Length; i++) {
+      int col = ItemColumns[i];
+      int slotIndex = row * TOTAL_COLUMNS + col;
+
+      if (InventoryService.TryGetItemAtSlot(SlotChest, slotIndex, out var item)) {
+        items[i] = item.ItemType;
+      }
+    }
+
+    return items;
+  }
+
+  private void DeliverWinRewards(Dictionary<int, PrefabGUID> wins) {
+    // Find the player who triggered the slot
+    var player = GetSlotPlayer();
+    if (player == Entity.Null) return;
+
+    foreach (var win in wins) {
+      var winningItem = win.Value;
+      var prize = GetPrizeForItem(winningItem);
+
+      if (prize.Prefab != 0 && prize.Amount > 0) {
+        // Deliver the prize to the player with correct amount from config
+        var prizeGuid = new PrefabGUID(prize.Prefab);
+        InventoryService.AddWithMaxAmount(player, 0, prizeGuid, prize.Amount, prize.Amount);
+
+        // Log the win for debugging
+        Log.Info($"Player won {prize.Amount}x {prize.Prefab} from {winningItem.GuidHash}");
+      }
+    }
+  }
+
+  private Entity GetSlotPlayer() {
+    return CurrentPlayer;
+  }
+
+  private Prize GetPrizeForItem(PrefabGUID item) {
+    // Map the winning item directly to its corresponding prize
+    return PrizeItemMap.Prizes.GetValueOrDefault(item, new Prize(0, 0));
+  }
+  #endregion
+
+  #region Population Methods
   public void PopulateSlotsColumns() {
     var random = new System.Random();
     var usedPerColumn = InitializeUsedItemsPerColumn();
@@ -309,11 +456,11 @@ internal class SlotModel {
   }
 
   private static PrefabGUID SelectUniqueWeightedItemForColumn(int col, Dictionary<int, HashSet<PrefabGUID>> usedPerColumn, System.Random random) {
-    var availableItems = TempSlotItems.WeightedItems.Where(kvp => !usedPerColumn[col].Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+    var availableItems = SlotItems.WeightedItems.Where(kvp => !usedPerColumn[col].Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
     if (availableItems.Count == 0) {
       usedPerColumn[col].Clear();
-      availableItems = TempSlotItems.WeightedItems;
+      availableItems = SlotItems.WeightedItems;
     }
 
     var prefabguid = GetWeightedRandomItem(availableItems, random);
@@ -429,4 +576,5 @@ internal class SlotModel {
 
     return (right, forward, up);
   }
+  #endregion
 }
