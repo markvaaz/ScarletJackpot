@@ -28,6 +28,20 @@ internal static class InventoryPatches {
 
         if (!SlotService.Has(toInv) && !SlotService.Has(fromInv)) continue;
 
+        var toInvIsSlotMachine = SlotService.Has(toInv);
+        var fromCharacter = entity.Read<FromCharacter>();
+
+        if (!fromCharacter.Character.Has<PlayerCharacter>() || !fromCharacter.User.Has<User>()) {
+          entity.Destroy(true);
+          continue;
+        }
+
+        var player = fromCharacter.Character.GetPlayerData();
+
+        if (toInvIsSlotMachine && InventoryService.TryGetItemAtSlot(fromInv, moveItemEvent.FromSlot, out var item) && item.ItemType == SPIN_COST_PREFAB && item.Amount >= SPIN_MIN_AMOUNT && item.Amount <= SPIN_MAX_AMOUNT) {
+          SlotService.SetBetAmount(player.PlatformId, item.Amount);
+        }
+
         entity.Destroy(true);
       }
     } catch (System.Exception ex) {
@@ -127,11 +141,18 @@ internal static class InventoryPatches {
 
         if (toInv.IsPlayer()) {
           var player = toInv.GetPlayerData();
-          var slot = SlotService.Get(fromInv);
-          if (InventoryService.HasAmount(toInv, new(862477668), 100)) {
-            InventoryService.RemoveItem(toInv, new(862477668), 100);
-            slot.InitializeSlotAnimation();
+
+          if (SlotService.HasBet(player.PlatformId)) {
+            var betAmount = SlotService.GetBetAmount(player.PlatformId);
+
+            var slot = SlotService.Get(fromInv);
+
+            if (InventoryService.HasAmount(toInv, SPIN_COST_PREFAB, betAmount)) {
+              InventoryService.RemoveItem(toInv, SPIN_COST_PREFAB, betAmount);
+              slot.InitializeSlotAnimation(toInv);
+            }
           }
+
         }
 
         entity.Destroy(true);
