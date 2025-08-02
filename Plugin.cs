@@ -38,6 +38,8 @@ public class Plugin : BasePlugin {
 
     Settings = new Settings(MyPluginInfo.PLUGIN_GUID, Instance);
     Database = new Database(MyPluginInfo.PLUGIN_GUID);
+
+    LoadSettings();
     CommandRegistry.RegisterAll();
   }
 
@@ -57,21 +59,27 @@ public class Plugin : BasePlugin {
     LoadSettings();
   }
   public static void LoadSettings() {
-    Settings.Section("General")
-      .Add("Enable", true, "Enable or disable the plugin");
+    Settings.Section("Spin Cost")
+      .Add("CostPrefabGUID", 862477668, "The PrefabGUID of the item to be consumed for each spin.")
+      .Add("MinAmount", 100, "The minimum amount of the item to be consumed for each spin.")
+      .Add("MaxAmount", 1000, "The maximum amount of the item to be consumed for each spin.");
+
+    // TODO: REVERT PRIZE POOL GUIDS TO 0
+    // 862477668 just for testing
+    Settings.Section("Prize Pool")
+      .Add("Fish", 862477668, "The PrefabGUID of the prize item for a row of fish. (25% chance)")
+      .Add("FishAmount", 1, "The amount of items given for a row of fish.")
+      .Add("Plants", 862477668, "The PrefabGUID of the prize item for a row of plants. (25% chance)")
+      .Add("PlantsAmount", 1, "The amount of items given for a row of plants.")
+      .Add("Gem", 862477668, "The PrefabGUID of the prize item for a row of gems. (20% chance)")
+      .Add("GemAmount", 1, "The amount of items given for a row of gems.")
+      .Add("Potions", 862477668, "The PrefabGUID of the prize item for a row of potions. (15% chance)")
+      .Add("PotionsAmount", 1, "The amount of items given for a row of potions.")
+      .Add("Vendors", 862477668, "The PrefabGUID of the prize item for a row of vendors. (10% chance)")
+      .Add("VendorsAmount", 1, "The amount of items given for a row of vendors.")
+      .Add("MagicStone", 862477668, "The PrefabGUID of the prize item for a row of magic stones. (4% chance)");
+
+    Settings.Section("Rugged Hands")
+      .Add("EnableRuggedHands", true, "If enabled, the Rugged Hands item will steal the current prizes from the slot machine (if any). (1% chance)");
   }
-
-  /*
-    [CommandGroup("groupname")]
-    public class CommandGroup
-    {
-      [Command("commandname", "Description of the command")]
-      public static void CommandName(CommandContext context)
-      {
-        // Command implementation
-        context.Reply("Command executed successfully!");
-      }
-    }
-  */
-
 }
