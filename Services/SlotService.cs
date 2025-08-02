@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using ProjectM;
 using ScarletCore.Systems;
-using ScarletCore.Utils;
 using ScarletJackpot.Models;
 using Unity.Collections;
 using Unity.Entities;
@@ -11,6 +10,7 @@ namespace ScarletJackpot.Services;
 internal static class SlotService {
   public static Dictionary<Entity, SlotModel> FromSlot { get; set; } = [];
   public static Dictionary<Entity, SlotModel> FromSlotChest { get; set; } = [];
+  public static Dictionary<ulong, int> CurrentBetAmount { get; set; } = new();
 
   public static void Initialize() {
     FromSlot.Clear();
@@ -29,6 +29,21 @@ internal static class SlotService {
         Register(slot);
       }
     }
+  }
+
+  public static void SetBetAmount(ulong playerId, int amount) {
+    CurrentBetAmount[playerId] = amount;
+  }
+
+  public static bool HasBet(ulong playerId) {
+    return CurrentBetAmount.ContainsKey(playerId);
+  }
+
+  public static int GetBetAmount(ulong playerId) {
+    if (CurrentBetAmount.TryGetValue(playerId, out var amount)) {
+      return amount;
+    }
+    return 0;
   }
 
   public static void Register(SlotModel slot) {
