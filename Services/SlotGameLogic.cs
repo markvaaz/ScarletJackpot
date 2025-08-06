@@ -35,7 +35,6 @@ internal class SlotGameLogic {
 
   // Lamp color animation state
   private byte _currentLampColor = 0;
-  private bool _isAnimating = false;
 
   public SlotGameLogic(SlotModel slotModel) {
     _slotModel = slotModel ?? throw new ArgumentNullException(nameof(slotModel));
@@ -47,10 +46,7 @@ internal class SlotGameLogic {
     ClearWinIndicators();
     PrepareSlotResults();
 
-    // Iniciar animação das cores da lâmpada
-    _isAnimating = true;
     _currentLampColor = 0;
-    StartLampColorAnimation();
 
     ActionScheduler.DelayedFrames(StartStaggeredAnimation, DELAYED_FRAMES);
   }
@@ -229,22 +225,7 @@ internal class SlotGameLogic {
 
   #region Lamp Color Animation
 
-  private void StartLampColorAnimation() {
-    if (!_isAnimating) return;
-
-    // Mudar para a próxima cor
-    _currentLampColor = (byte)((_currentLampColor + 1) % LAMP_COLOR_COUNT);
-    _slotModel.ChangeLampColor(_currentLampColor);
-
-    // Agendar próxima mudança de cor
-    ActionScheduler.DelayedFrames(() => {
-      StartLampColorAnimation();
-    }, LAMP_COLOR_CHANGE_FREQUENCY);
-  }
-
   private void StopLampColorAnimation() {
-    _isAnimating = false;
-    // Resetar para cor padrão (0)
     _currentLampColor = 0;
     _slotModel.ChangeLampColor(_currentLampColor);
   }
@@ -287,6 +268,12 @@ internal class SlotGameLogic {
     if (iteration >= 60) {
       nextFrameSpeed = frameSpeed + 1;
     }
+
+    BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.SlotGameBuff);
+    BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.SlotGameBuff);
+
+    _currentLampColor = (byte)((_currentLampColor + 1) % LAMP_COLOR_COUNT);
+    _slotModel.ChangeLampColor(_currentLampColor);
 
     ActionScheduler.DelayedFrames(() => {
       AnimateColumnWithDelay(column, iteration + 1, nextFrameSpeed, columnIndex);
@@ -501,6 +488,9 @@ internal class SlotGameLogic {
     }
 
     BuffService.TryApplyBuff(player, Buffs.VictoryVoiceLineBuff); // 5 segundos de duração
+
+    BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.VictorySlotBuff); // Efeito visual no slot
+    BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.VictorySlotBuff); // Efeito visual no slot
 
     // Obter valor da aposta do jogador para calcular multiplicador
     var playerData = player.GetPlayerData();
