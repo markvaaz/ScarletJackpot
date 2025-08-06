@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using ScarletCore.Services;
 using ScarletCore.Utils;
@@ -119,13 +118,7 @@ public static class AdminCommands {
 
       SlotService.Unregister(slot);
 
-      // Destroy both entities
-      if (slot.SlotChest.Exists()) {
-        slot.SlotChest.Destroy();
-      }
-      if (slot.Slot.Exists()) {
-        slot.Slot.Destroy();
-      }
+      slot.Destroy();
 
       ctx.Reply("Slot machine removed successfully.".FormatSuccess());
       return;
