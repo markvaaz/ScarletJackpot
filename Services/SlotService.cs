@@ -170,10 +170,16 @@ internal static class SlotService {
     foreach (var slot in query) {
       if (!slot.Has<NameableInteractable>()) continue;
       if (slot.IdEquals(SlotId)) {
-        var slotChest = slot.Read<Follower>().Followed._Value;
-        var lamp = slotChest.Read<Follower>().Followed._Value;
-        slotChest.Destroy();
-        lamp.Destroy();
+        if (slot.Has<Follower>()) {
+          var slotChest = slot.Read<Follower>().Followed._Value;
+
+          if (slotChest.Has<Follower>()) {
+            var lamp = slotChest.Read<Follower>().Followed._Value;
+            lamp.Destroy();
+          }
+          slotChest.Destroy();
+        }
+
         slot.Destroy();
       }
     }
