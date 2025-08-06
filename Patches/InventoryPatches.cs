@@ -51,8 +51,7 @@ internal static class InventoryPatches {
             continue;
           }
 
-          SlotService.SetBetAmount(player.PlatformId, item.Amount);
-          player.SendMessage("Bet amount set for slot machine: " + item.Amount);
+          SlotService.SetBetAmount(player, item.Amount);
         }
 
         entity.Destroy(true);
