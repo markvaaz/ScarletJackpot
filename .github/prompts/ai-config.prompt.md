@@ -1,16 +1,6 @@
 ---
 mode: agent
 ---
-# Project Overview
-ScarletQuests is a modding project for V Rising, focused on custom quest systems, NPCs, and event-driven gameplay extensions. It uses ScarletCore as a base framework.
-
-# Folder Structure
-- `/Models`: Contains quest, objective, and NPC models.
-- `/Systems`: Core systems for quest logic and event handling.
-- `/Services`: Utility and helper services for game integration.
-- `/Definitions`: Game data definitions and types.
-- `/Commands`: Command handlers and test scripts.
-
 # Libraries and Frameworks
 - ScarletCore (see https://github.com/markvaaz/ScarletCore)
 - ProjectM (V Rising modding API)

@@ -1,7 +1,9 @@
-﻿using BepInEx;
+﻿using System.Reflection;
+using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
+using ProjectM;
 using ScarletCore.Data;
 using ScarletCore.Events;
 using ScarletCore.Systems;
@@ -28,7 +30,7 @@ public class Plugin : BasePlugin {
     Log.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} version {MyPluginInfo.PLUGIN_VERSION} is loaded!");
 
     _harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
-    _harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
+    _harmony.PatchAll(Assembly.GetExecutingAssembly());
 
     if (GameSystems.Initialized) {
       OnInitialized(null, null);
@@ -45,6 +47,8 @@ public class Plugin : BasePlugin {
 
   public override bool Unload() {
     _harmony?.UnpatchSelf();
+    ActionScheduler.UnregisterAssembly(Assembly.GetExecutingAssembly());
+    EventManager.UnregisterAssembly(Assembly.GetExecutingAssembly());
     CommandRegistry.UnregisterAssembly();
     return true;
   }
@@ -64,20 +68,26 @@ public class Plugin : BasePlugin {
       .Add("MinAmount", 100, "The minimum amount of the item to be consumed for each spin.")
       .Add("MaxAmount", 1000, "The maximum amount of the item to be consumed for each spin.");
 
+    Settings.Section("RTP Control")
+      .Add("RTPRate", 0.85f, "Return to Player rate (0.0 to 1.0). Higher values = more player-friendly.")
+      .Add("BaseWinChance", 0.15f, "Base chance for winning lines (0.0 to 1.0). Higher values = more wins.")
+      .Add("EnableRTPControl", true, "Enable sophisticated RTP control system for casino-like behavior.");
+
     // TODO: REVERT PRIZE POOL GUIDS TO 0
     // 862477668 just for testing
     Settings.Section("Prize Pool")
-      .Add("Fish", 862477668, "The PrefabGUID of the prize item for a row of fish. (25% chance)")
+      .Add("Fish", 862477668, "The PrefabGUID of the prize item for a row of fish.")
       .Add("FishAmount", 1, "The amount of items given for a row of fish.")
-      .Add("Plants", 862477668, "The PrefabGUID of the prize item for a row of plants. (25% chance)")
-      .Add("PlantsAmount", 1, "The amount of items given for a row of plants.")
-      .Add("Gem", 862477668, "The PrefabGUID of the prize item for a row of gems. (20% chance)")
-      .Add("GemAmount", 1, "The amount of items given for a row of gems.")
-      .Add("Potions", 862477668, "The PrefabGUID of the prize item for a row of potions. (15% chance)")
-      .Add("PotionsAmount", 1, "The amount of items given for a row of potions.")
-      .Add("Vendors", 862477668, "The PrefabGUID of the prize item for a row of vendors. (10% chance)")
-      .Add("VendorsAmount", 1, "The amount of items given for a row of vendors.")
-      .Add("MagicStone", 862477668, "The PrefabGUID of the prize item for a row of magic stones. (4% chance)");
+      .Add("DuskCaller", 862477668, "The PrefabGUID of the prize item for a row of DuskCaller.")
+      .Add("DuskCallerAmount", 2, "The amount of items given for a row of DuskCaller.")
+      .Add("Gem", 862477668, "The PrefabGUID of the prize item for a row of gems.")
+      .Add("GemAmount", 5, "The amount of items given for a row of gems.")
+      .Add("Jewel", 862477668, "The PrefabGUID of the prize item for a row of jewels.")
+      .Add("JewelAmount", 5, "The amount of items given for a row of jewels.")
+      .Add("MagicStone", 862477668, "The PrefabGUID of the prize item for a row of magic stones.")
+      .Add("MagicAmount", 10, "The amount of items given for a row of magic stones.")
+      .Add("DemonFragment", 862477668, "The PrefabGUID of the prize item for a row of demon fragments (JACKPOT).")
+      .Add("DemonAmount", 50, "The amount of items given for a row of demon fragments.");
 
     Settings.Section("Rugged Hands")
       .Add("EnableRuggedHands", true, "If enabled, the Rugged Hands item will steal the current prizes from the slot machine (if any). (1% chance)");

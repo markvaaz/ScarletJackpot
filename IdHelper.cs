@@ -20,6 +20,11 @@ internal static class IdHelper {
     });
   }
 
+  public static bool HasId(this Entity entity) {
+    if (entity == Entity.Null || !entity.Has<NameableInteractable>()) return false;
+    return !string.IsNullOrEmpty(entity.GetId());
+  }
+
   public static bool IdEquals(this Entity entity, string id) {
     if (entity == Entity.Null || !entity.Has<NameableInteractable>()) return false;
     return entity.Read<NameableInteractable>().Name.Value == id;

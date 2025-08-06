@@ -39,7 +39,20 @@ internal static class InventoryPatches {
         var player = fromCharacter.Character.GetPlayerData();
 
         if (toInvIsSlotMachine && InventoryService.TryGetItemAtSlot(fromInv, moveItemEvent.FromSlot, out var item) && item.ItemType == SPIN_COST_PREFAB && item.Amount >= SPIN_MIN_AMOUNT && item.Amount <= SPIN_MAX_AMOUNT) {
+          var slot = SlotService.Get(toInv);
+
+          // Verificar se o jogador é o atual da slot machine
+          if (slot.CurrentPlayer != fromCharacter.Character) {
+            var playerData = fromCharacter.Character.GetPlayerData();
+            if (playerData != null) {
+              MessageService.Send(playerData, "You must be interacting with the slot machine to place bets!");
+            }
+            entity.Destroy(true);
+            continue;
+          }
+
           SlotService.SetBetAmount(player.PlatformId, item.Amount);
+          player.SendMessage("Bet amount set for slot machine: " + item.Amount);
         }
 
         entity.Destroy(true);
@@ -146,6 +159,23 @@ internal static class InventoryPatches {
             var betAmount = SlotService.GetBetAmount(player.PlatformId);
 
             var slot = SlotService.Get(fromInv);
+
+            // Verificar se a slot machine já está em execução
+            if (slot.IsRunning) {
+              Log.Info("Slot machine is already running - bet rejected!");
+              entity.Destroy(true);
+              continue;
+            }
+
+            // Verificar se este jogador é o atual da slot machine
+            if (slot.CurrentPlayer != toInv) {
+              var playerData = toInv.GetPlayerData();
+              if (playerData != null) {
+                MessageService.Send(playerData, "You must be interacting with the slot machine to spin!");
+              }
+              entity.Destroy(true);
+              continue;
+            }
 
             if (InventoryService.HasAmount(toInv, SPIN_COST_PREFAB, betAmount)) {
               InventoryService.RemoveItem(toInv, SPIN_COST_PREFAB, betAmount);

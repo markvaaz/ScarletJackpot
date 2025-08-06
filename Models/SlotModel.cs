@@ -1,12 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using ProjectM;
-using ProjectM.Network;
+using ProjectM.CastleBuilding;
+using ProjectM.Shared;
 using ProjectM.Tiles;
 using ScarletCore.Services;
 using ScarletCore.Systems;
 using ScarletCore.Utils;
+using ScarletJackpot.Constants;
+using ScarletJackpot.Services;
 using Stunlock.Core;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -15,20 +15,24 @@ using Unity.Transforms;
 namespace ScarletJackpot.Models;
 
 internal class SlotModel {
-  private const int TOTAL_COLUMNS = 7;
-  private const int TOTAL_ROWS = 3;
-  private const int ANIMATION_INITIAL_FRAME_SPEED = 2;
-  private const int ANIMATION_STOP_ITERATIONS = 75;
+  private const int SPIN_TIMEOUT_SECONDS = 30;
   private const int DELAYED_FRAMES = 10;
-  private const int COLUMN_START_DELAY = 5;
-  private const int COLUMN_SPEED_OFFSET = 1;
 
   public int[] ItemColumns { get; } = [1, 3, 5];
   public float3 SlotChestOffset => new(0f, 0f, 0.5f);
   public Entity SlotChest { get; private set; }
   public Entity Slot { get; private set; }
+  public Entity Lamp { get; private set; }
   public bool IsRunning { get; private set; } = false;
   public Entity CurrentPlayer { get; private set; } = Entity.Null;
+  private ActionId _spinTimeoutActionId;
+
+  // Rotation properties
+  public float3 Position { get; private set; }
+  public quaternion Rotation => Slot.Read<Rotation>().Value;
+
+  // Game logic handler
+  private SlotGameLogic _gameLogic;
 
   private static Entity _defaultStandEntity;
   public static Entity DefaultSlotEntity {
@@ -46,11 +50,16 @@ internal class SlotModel {
 
   public SlotModel(float3 position) {
     var adjustedPosition = AdjustPosition(position);
+    Position = adjustedPosition;
 
     CreateSlotEntity(adjustedPosition);
     CreateSlotChest(adjustedPosition);
+    CreateLampEntity(adjustedPosition);
     BindSlotWithChest();
-    ActionScheduler.DelayedFrames(PopulateSlotsColumns, DELAYED_FRAMES);
+
+    // Initialize game logic
+    _gameLogic = new SlotGameLogic(this);
+    ActionScheduler.DelayedFrames(() => _gameLogic.PopulateSlots(), DELAYED_FRAMES);
   }
 
   public SlotModel(Entity slotEntity) {
@@ -61,6 +70,98 @@ internal class SlotModel {
 
     Slot = slotEntity;
     SlotChest = slotEntity.Read<Follower>().Followed._Value;
+    Lamp = SlotChest.Read<Follower>().Followed._Value;
+
+    // Store position from existing entity
+    if (Slot.Has<LocalToWorld>()) {
+      Position = Slot.Read<LocalToWorld>().Position;
+    }
+
+    // Initialize game logic
+    _gameLogic = new SlotGameLogic(this);
+  }
+
+  public bool HasCurrentPlayer() => CurrentPlayer != Entity.Null;
+
+  public bool IsPlayerInteracting(Entity player) {
+    if (player == Entity.Null || !player.Has<PlayerCharacter>()) return false;
+
+    var interactor = player.Read<Interactor>();
+    return BuffService.HasBuff(player, SlotInteractBuff) && interactor.Target != Entity.Null && interactor.Target == SlotChest;
+  }
+
+  public bool SetCurrentPlayer(Entity player) {
+    if (IsRunning) return false; // Não pode trocar jogador durante spin
+
+    // Se não há jogador atual, define este
+    if (CurrentPlayer == Entity.Null) {
+      CurrentPlayer = player;
+      return true;
+    }
+
+    // Se o jogador atual não está mais interagindo, pode trocar
+    if (!IsPlayerInteracting(CurrentPlayer)) {
+      CurrentPlayer = player;
+      return true;
+    }
+
+    // Se é o mesmo jogador, mantém
+    if (CurrentPlayer == player) {
+      return true;
+    }
+
+    // Outro jogador já está usando
+    return false;
+  }
+
+  public void ClearCurrentPlayer() {
+    if (!IsRunning) { // Só limpa se não estiver rodando
+      CurrentPlayer = Entity.Null;
+      CancelSpinTimeout();
+    }
+  }
+
+  private void StartSpinTimeout() {
+    CancelSpinTimeout(); // Cancelar timeout anterior se existir
+
+    // Agendar timeout usando ActionScheduler.Delayed (em segundos)
+    _spinTimeoutActionId = ActionScheduler.Delayed(HandleSpinTimeout, SPIN_TIMEOUT_SECONDS);
+  }
+
+  private void CancelSpinTimeout() {
+    if (_spinTimeoutActionId != default) {
+      ActionScheduler.CancelAction(_spinTimeoutActionId);
+      _spinTimeoutActionId = default;
+    }
+  }
+
+  private void HandleSpinTimeout() {
+    if (!IsRunning) return;
+
+    // Parar a animação e limpar estado
+    IsRunning = false;
+
+    // Enviar mensagem ao jogador
+    if (CurrentPlayer != Entity.Null && CurrentPlayer.Has<PlayerCharacter>()) {
+      var playerData = CurrentPlayer.GetPlayerData();
+      if (playerData != null) {
+        MessageService.Send(playerData, $"Slot machine spin timed out after {SPIN_TIMEOUT_SECONDS} seconds. Animation stopped.".FormatError());
+      }
+    }
+
+    // Limpar jogador atual
+    CurrentPlayer = Entity.Null;
+
+    // Resetar slot machine para estado inicial
+    _gameLogic.PopulateSlots();
+  }
+
+  /// <summary>
+  /// Called by SlotGameLogic when animation finishes
+  /// </summary>
+  internal void OnAnimationFinished() {
+    IsRunning = false;
+    CancelSpinTimeout();
   }
 
   private static float3 AdjustPosition(float3 position) {
@@ -70,6 +171,34 @@ internal class SlotModel {
       position.y,
       math.round(position.z * 2f) / 2f + offset
     );
+  }
+
+  private void CreateLampEntity(float3 position) {
+    Lamp = UnitSpawnerService.ImmediateSpawn(Spawnable.Lamp, position, 0f, 0f);
+
+    SlotChest.AddWith((ref Follower follower) => {
+      follower.Followed._Value = Lamp;
+    });
+
+    if (Lamp != Entity.Null) {
+      Lamp.With((ref EditableTileModel editableTileModel) => {
+        editableTileModel.CanDismantle = false;
+        editableTileModel.CanMoveAfterBuild = false;
+        editableTileModel.CanRotateAfterBuild = false;
+      });
+
+      BuffService.TryApplyBuff(Lamp, Buffs.Invulnerable, -1);
+      BuffService.TryApplyBuff(Lamp, Buffs.Immaterial, -1);
+    } else {
+      Log.Error("Failed to spawn Lamp entity for Slot machine.");
+    }
+  }
+
+  public void ChangeLampColor(byte colorIndex) {
+    Lamp.With((ref DyeableCastleObject dyeable) => {
+      dyeable.PrevColorIndex = dyeable.ActiveColorIndex;
+      dyeable.ActiveColorIndex = colorIndex;
+    });
   }
 
   private void CreateSlotEntity(float3 position) {
@@ -94,7 +223,7 @@ internal class SlotModel {
 
   private void ConfigureSlotEntity() {
     Slot.With((ref Interactable interactable) => interactable.Disabled = true);
-    Slot.SetId(Ids.Slot);
+    Slot.SetId(SlotId);
     BuffService.TryApplyBuff(Slot, Buffs.Invulnerable, -1);
 
     Slot.With((ref EditableTileModel editableTileModel) => {
@@ -125,175 +254,39 @@ internal class SlotModel {
   }
 
   public void InitializeSlotAnimation() {
+    if (IsRunning) {
+      return;
+    }
+
     IsRunning = true;
-    ActionScheduler.DelayedFrames(() => StartStaggeredAnimation(), DELAYED_FRAMES);
+
+    // Iniciar timeout para cancelar se o spin não completar
+    StartSpinTimeout();
+
+    _gameLogic.StartAnimation();
   }
 
   public void InitializeSlotAnimation(Entity player) {
+    if (IsRunning) {
+      if (player != Entity.Null && player.Has<PlayerCharacter>()) {
+        var playerData = player.GetPlayerData();
+        if (playerData != null) {
+          MessageService.Send(playerData, "Slot machine is spinning... wait!");
+        }
+      }
+      return;
+    }
+
     CurrentPlayer = player;
     InitializeSlotAnimation();
   }
 
-  private void StartStaggeredAnimation() {
-    for (int i = 0; i < ItemColumns.Length; i++) {
-      int columnIndex = i;
-      int column = ItemColumns[i];
-      int startDelay = i * COLUMN_START_DELAY;
-      int columnSpeed = ANIMATION_INITIAL_FRAME_SPEED;
-
-      ActionScheduler.DelayedFrames(() => {
-        StartColumnAnimation(column, columnSpeed, columnIndex);
-      }, startDelay);
-    }
-  }
-
-  private void StartColumnAnimation(int column, int initialSpeed, int columnIndex) {
-    AnimateColumnWithDelay(column, 0, initialSpeed, columnIndex);
-  }
-
-  private void AnimateColumnWithDelay(int column, int iteration, int frameSpeed, int columnIndex) {
-    if (iteration >= ANIMATION_STOP_ITERATIONS) {
-      // Check if this is the last column to finish animating
-      if (columnIndex == ItemColumns.Length - 1) {
-        ProcessSlotResults();
-      }
-      IsRunning = false;
-      return;
-    }
-
-    AnimateSingleColumn(column);
-
-    int nextFrameSpeed = frameSpeed;
-
-    if (iteration >= 60) {
-      nextFrameSpeed = frameSpeed + 1;
-    }
-
-    ActionScheduler.DelayedFrames(() => {
-      AnimateColumnWithDelay(column, iteration + 1, nextFrameSpeed, columnIndex);
-    }, nextFrameSpeed);
-  }
-
-  private void AnimateSingleColumn(int column) {
-    var random = new System.Random();
-    ProcessColumnAnimation(column, random);
-  }
-
-  [System.Obsolete("Use AnimateSingleColumn para animações individuais por coluna")]
-  public void AnimateSlotColumns() {
-    var random = new System.Random();
-
-    foreach (var col in ItemColumns) {
-      ProcessColumnAnimation(col, random);
-    }
-  }
-
   public void AnimateAllColumnsSync() {
-    var random = new System.Random();
-
-    foreach (var col in ItemColumns) {
-      ProcessColumnAnimation(col, random);
-    }
+    _gameLogic.AnimateAllColumnsSync();
   }
 
-  private void ProcessColumnAnimation(int col, System.Random random) {
-    var currentItems = GetCurrentColumnItems(col);
-    RemoveBottomItem(col);
-    MoveItemsDown(col);
-    AddNewTopItem(col, currentItems, random);
-  }
-
-  private List<PrefabGUID> GetCurrentColumnItems(int col) {
-    var currentItems = new List<PrefabGUID>();
-
-    for (int row = 0; row < TOTAL_ROWS; row++) {
-      int slotIndex = row * TOTAL_COLUMNS + col;
-      InventoryService.TryGetItemAtSlot(SlotChest, slotIndex, out var item);
-      currentItems.Add(item.ItemType);
-    }
-
-    return currentItems;
-  }
-
-  private void RemoveBottomItem(int col) {
-    int lastSlotIndex = (TOTAL_ROWS - 1) * TOTAL_COLUMNS + col;
-    InventoryService.RemoveItemAtSlot(SlotChest, lastSlotIndex);
-  }
-
-  private void MoveItemsDown(int col) {
-    for (int row = TOTAL_ROWS - 1; row > 0; row--) {
-      int fromIndex = (row - 1) * TOTAL_COLUMNS + col;
-      int toIndex = row * TOTAL_COLUMNS + col;
-
-      InventoryService.RemoveItemAtSlot(SlotChest, toIndex);
-
-      if (InventoryService.TryGetItemAtSlot(SlotChest, fromIndex, out var item)) {
-        InventoryService.AddWithMaxAmount(SlotChest, toIndex, item.ItemType, 1, 1);
-      }
-    }
-  }
-
-  private void AddNewTopItem(int col, List<PrefabGUID> currentItems, System.Random random) {
-    var newItem = SelectNewItemWithWeight(currentItems, random);
-    int topSlotIndex = 0 * TOTAL_COLUMNS + col;
-
-    InventoryService.RemoveItemAtSlot(SlotChest, topSlotIndex);
-    InventoryService.AddWithMaxAmount(SlotChest, topSlotIndex, newItem, 1, 1);
-    SetAllItemsMaxAmount(SlotChest, 1);
-  }
-
-  private static PrefabGUID SelectNewItemWithWeight(List<PrefabGUID> currentItems, System.Random random) {
-    var used = new HashSet<PrefabGUID>(currentItems);
-    used.Remove(default);
-
-    // Try to get a weighted item that's not already in the column
-    var availableItems = SlotItems.WeightedItems.Where(kvp => !used.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-
-    if (availableItems.Count == 0) {
-      // If all items are used, use the full weighted list
-      availableItems = SlotItems.WeightedItems;
-    }
-
-    return GetWeightedRandomItem(availableItems, random);
-  }
-
-  // Novo método para controlar chances de vitória como cassino real
-  private static PrefabGUID SelectNewItemWithWinControl(List<PrefabGUID> currentItems, System.Random random, bool allowWinningCombination = true) {
-    var used = new HashSet<PrefabGUID>(currentItems);
-    used.Remove(default);
-
-    // Se não queremos permitir combinação vencedora, evitar itens que já estão na coluna
-    if (!allowWinningCombination && used.Count > 0) {
-      var availableItems = SlotItems.WeightedItems.Where(kvp => !used.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-
-      if (availableItems.Count > 0) {
-        return GetWeightedRandomItem(availableItems, random);
-      }
-    }
-
-    // Caso contrário, usar seleção normal com peso
-    var allAvailableItems = SlotItems.WeightedItems.Where(kvp => !used.Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-
-    if (allAvailableItems.Count == 0) {
-      allAvailableItems = SlotItems.WeightedItems;
-    }
-
-    return GetWeightedRandomItem(allAvailableItems, random);
-  }
-
-  private static PrefabGUID GetWeightedRandomItem(Dictionary<PrefabGUID, int> weightedItems, System.Random random) {
-    int totalWeight = weightedItems.Values.Sum();
-    int randomValue = random.Next(totalWeight);
-    int currentWeight = 0;
-
-    foreach (var item in weightedItems) {
-      currentWeight += item.Value;
-      if (randomValue < currentWeight) {
-        return item.Key;
-      }
-    }
-
-    return weightedItems.Keys.First();
+  public void PopulateSlotsColumns() {
+    _gameLogic.PopulateSlots();
   }
 
   public void StopColumnAnimation(int columnIndex) {
@@ -304,176 +297,11 @@ internal class SlotModel {
 
   public void StartManualColumnAnimation(int columnIndex, int iterations = 10) {
     if (columnIndex >= 0 && columnIndex < ItemColumns.Length) {
-      int column = ItemColumns[columnIndex];
-      int speed = ANIMATION_INITIAL_FRAME_SPEED + (columnIndex * COLUMN_SPEED_OFFSET);
-
-      AnimateColumnWithDelay(column, 0, speed, columnIndex, iterations);
+      // This functionality could be delegated to SlotGameLogic if needed
     }
   }
 
-  private void AnimateColumnWithDelay(int column, int iteration, int frameSpeed, int columnIndex, int maxIterations) {
-    if (iteration >= maxIterations) return;
-
-    AnimateSingleColumn(column);
-
-    int nextFrameSpeed = frameSpeed + (iteration / 3);
-
-    ActionScheduler.DelayedFrames(() => {
-      AnimateColumnWithDelay(column, iteration + 1, nextFrameSpeed, columnIndex, maxIterations);
-    }, nextFrameSpeed);
-  }
-
-  #region Win Detection and Rewards
-  private void ProcessSlotResults() {
-    var wins = DetectWins();
-    var raghandsWin = wins.ContainsValue(new PrefabGUID(1216450741)); // raghands GUID
-
-    if (raghandsWin) {
-      // Raghands steals all wins - no rewards
-      Log.Info("Raghands appeared! All wins stolen!");
-      return;
-    }
-
-    if (wins.Count > 0) {
-      Log.Info($"Player won on {wins.Count} line(s)!");
-      DeliverWinRewards(wins);
-    } else {
-      Log.Info("No wins this spin.");
-    }
-  }
-
-  private Dictionary<int, PrefabGUID> DetectWins() {
-    var wins = new Dictionary<int, PrefabGUID>();
-    var random = new System.Random();
-
-    for (int row = 0; row < TOTAL_ROWS; row++) {
-      var rowItems = GetRowItems(row);
-
-      // Check if all 3 items in the row are the same and not null
-      if (rowItems[0] != default && rowItems[0] == rowItems[1] && rowItems[1] == rowItems[2]) {
-
-        // Aplicar controle de probabilidade de vitória (como cassino real)
-        if (SlotItems.ShouldFormWinningLine(rowItems[0], random)) {
-          wins[row] = rowItems[0];
-          Log.Info($"Win detected on row {row}: {rowItems[0].GuidHash}");
-        } else {
-          Log.Info($"Potential win on row {row} blocked by RTP control: {rowItems[0].GuidHash}");
-          // Opcional: substituir um item para quebrar a linha
-          BreakWinningLine(row, random);
-        }
-      }
-    }
-
-    return wins;
-  }
-
-  // Método para quebrar linhas vencedoras (controle de RTP)
-  private void BreakWinningLine(int row, System.Random random) {
-    // Escolher uma coluna aleatória para substituir
-    int columnToBreak = random.Next(ItemColumns.Length);
-    int col = ItemColumns[columnToBreak];
-    int slotIndex = row * TOTAL_COLUMNS + col;
-
-    // Remover o item atual
-    InventoryService.RemoveItemAtSlot(SlotChest, slotIndex);
-
-    // Adicionar um item diferente
-    var currentRowItems = GetRowItems(row).ToList();
-    var newItem = SelectDifferentItem(currentRowItems[0], random);
-
-    InventoryService.AddWithMaxAmount(SlotChest, slotIndex, newItem, 1, 1);
-    SetAllItemsMaxAmount(SlotChest, 1);
-  }
-
-  private PrefabGUID SelectDifferentItem(PrefabGUID avoidItem, System.Random random) {
-    var availableItems = SlotItems.WeightedItems.Where(kvp => kvp.Key != avoidItem).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-    return GetWeightedRandomItem(availableItems, random);
-  }
-
-  private PrefabGUID[] GetRowItems(int row) {
-    var items = new PrefabGUID[3];
-
-    for (int i = 0; i < ItemColumns.Length; i++) {
-      int col = ItemColumns[i];
-      int slotIndex = row * TOTAL_COLUMNS + col;
-
-      if (InventoryService.TryGetItemAtSlot(SlotChest, slotIndex, out var item)) {
-        items[i] = item.ItemType;
-      }
-    }
-
-    return items;
-  }
-
-  private void DeliverWinRewards(Dictionary<int, PrefabGUID> wins) {
-    // Find the player who triggered the slot
-    var player = GetSlotPlayer();
-    if (player == Entity.Null) return;
-
-    foreach (var win in wins) {
-      var winningItem = win.Value;
-      var prize = GetPrizeForItem(winningItem);
-
-      if (prize.Prefab != 0 && prize.Amount > 0) {
-        // Deliver the prize to the player with correct amount from config
-        var prizeGuid = new PrefabGUID(prize.Prefab);
-        InventoryService.AddWithMaxAmount(player, 0, prizeGuid, prize.Amount, prize.Amount);
-
-        // Log the win for debugging
-        Log.Info($"Player won {prize.Amount}x {prize.Prefab} from {winningItem.GuidHash}");
-      }
-    }
-  }
-
-  private Entity GetSlotPlayer() {
-    return CurrentPlayer;
-  }
-
-  private Prize GetPrizeForItem(PrefabGUID item) {
-    // Map the winning item directly to its corresponding prize
-    return PrizeItemMap.Prizes.GetValueOrDefault(item, new Prize(0, 0));
-  }
-  #endregion
-
-  #region Population Methods
-  public void PopulateSlotsColumns() {
-    var random = new System.Random();
-    var usedPerColumn = InitializeUsedItemsPerColumn();
-
-    for (int row = 0; row < TOTAL_ROWS; row++) {
-      foreach (var col in ItemColumns) {
-        var prefabguid = SelectUniqueWeightedItemForColumn(col, usedPerColumn, random);
-        AddItemToSlot(row, col, prefabguid);
-      }
-    }
-  }
-
-  private Dictionary<int, HashSet<PrefabGUID>> InitializeUsedItemsPerColumn() {
-    var usedPerColumn = new Dictionary<int, HashSet<PrefabGUID>>();
-    foreach (var col in ItemColumns)
-      usedPerColumn[col] = [];
-    return usedPerColumn;
-  }
-
-  private static PrefabGUID SelectUniqueWeightedItemForColumn(int col, Dictionary<int, HashSet<PrefabGUID>> usedPerColumn, System.Random random) {
-    var availableItems = SlotItems.WeightedItems.Where(kvp => !usedPerColumn[col].Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-
-    if (availableItems.Count == 0) {
-      usedPerColumn[col].Clear();
-      availableItems = SlotItems.WeightedItems;
-    }
-
-    var prefabguid = GetWeightedRandomItem(availableItems, random);
-    usedPerColumn[col].Add(prefabguid);
-
-    return prefabguid;
-  }
-
-  private void AddItemToSlot(int row, int col, PrefabGUID prefabguid) {
-    int slotIndex = row * TOTAL_COLUMNS + col;
-    InventoryService.AddWithMaxAmount(SlotChest, slotIndex, prefabguid, 1, 1);
-    SetAllItemsMaxAmount(SlotChest, 1);
-  }
+  #region Static Entity Utilities
 
   public static void SetAllItemsMaxAmount(Entity entity, int maxAmount) {
     var inventoryBuffer = InventoryService.GetInventoryItems(entity);
@@ -576,5 +404,138 @@ internal class SlotModel {
 
     return (right, forward, up);
   }
+
+  #region Rotation Methods
+
+  /// <summary>
+  /// Rotates the slot machine by the specified number of 90-degree steps
+  /// </summary>
+  /// <param name="rotationSteps">Number of 90-degree steps (0-3)</param>
+  public void RotateSlot(int rotationSteps) {
+    if (IsRunning) {
+      Log.Warning("Cannot rotate slot machine while spinning!");
+      return;
+    }
+
+    // Normalize rotation steps to 0-3 range
+    rotationSteps = ((rotationSteps % 4) + 4) % 4;
+
+    var quaternions = new quaternion[] {
+      quaternion.identity,
+      quaternion.RotateY(math.radians(90f)),
+      quaternion.RotateY(math.radians(180f)),
+      quaternion.RotateY(math.radians(270f))
+    };
+
+    var targetRotation = quaternions[rotationSteps];
+    ApplyRotationToEntities(rotationSteps, targetRotation);
+  }
+
+  /// <summary>
+  /// Rotates the slot machine to align with a specific quaternion rotation
+  /// </summary>
+  /// <param name="targetRotation">Target rotation quaternion</param>
+  public void AlignToRotation(quaternion targetRotation) {
+    if (IsRunning) {
+      Log.Warning("Cannot rotate slot machine while spinning!");
+      return;
+    }
+
+    var quaternions = new quaternion[] {
+      quaternion.identity,
+      quaternion.RotateY(math.radians(90f)),
+      quaternion.RotateY(math.radians(180f)),
+      quaternion.RotateY(math.radians(270f))
+    };
+
+    // Find closest rotation step
+    var forward = math.mul(targetRotation, new float3(0, 0, 1));
+    var threshold = 0.4f;
+
+    int rotationStep = 0;
+    if (forward.z > threshold) rotationStep = 0;      // North
+    else if (forward.x > threshold) rotationStep = 1;  // East
+    else if (forward.z < -threshold) rotationStep = 2; // South
+    else if (forward.x < -threshold) rotationStep = 3; // West
+
+    var finalRotation = quaternions[rotationStep];
+    ApplyRotationToEntities(rotationStep, finalRotation);
+  }
+
+  /// <summary>
+  /// Applies rotation to Slot, SlotChest, and Lamp entities
+  /// </summary>
+  /// <param name="rotationStep">Rotation step (0-3)</param>
+  /// <param name="rotation">Target quaternion rotation</param>
+  private void ApplyRotationToEntities(int rotationStep, quaternion rotation) {
+    var center = Position;
+
+    // Rotate the main slot entity
+    if (Slot.Exists()) {
+      Slot.SetPosition(center);
+      RotateTile(Slot, rotationStep);
+    }
+
+    // Rotate and reposition the slot chest
+    if (SlotChest.Exists()) {
+      var rotatedChestPos = center + math.mul(rotation, SlotChestOffset);
+      SlotChest.SetPosition(rotatedChestPos);
+      RotateTile(SlotChest, rotationStep);
+    }
+
+    // Rotate the lamp entity (positioned at same location as slot)
+    if (Lamp.Exists()) {
+      Lamp.SetPosition(center);
+      RotateTile(Lamp, rotationStep);
+    }
+  }
+
+  /// <summary>
+  /// Gets the current rotation step (0-3) of the slot machine
+  /// </summary>
+  /// <returns>Current rotation step</returns>
+  public int GetRotationStep() {
+    var forward = math.mul(Rotation, new float3(0, 0, 1));
+    var threshold = 0.4f;
+
+    if (forward.z > threshold) return 0;      // North
+    else if (forward.x > threshold) return 1;  // East
+    else if (forward.z < -threshold) return 2; // South
+    else if (forward.x < -threshold) return 3; // West
+
+    return 0; // Default to north
+  }
+
+  /// <summary>
+  /// Moves the slot machine to a new position
+  /// </summary>
+  /// <param name="newPosition">New position for the slot machine</param>
+  public void MoveSlot(float3 newPosition) {
+    if (IsRunning) {
+      Log.Warning("Cannot move slot machine while spinning!");
+      return;
+    }
+
+    var adjustedPosition = AdjustPosition(newPosition);
+    Position = adjustedPosition;
+
+    // Move the main slot entity
+    if (Slot.Exists()) {
+      Slot.SetPosition(adjustedPosition);
+    }
+
+    // Move and reposition the slot chest with current rotation
+    if (SlotChest.Exists()) {
+      var rotatedChestPos = adjustedPosition + math.mul(Rotation, SlotChestOffset);
+      SlotChest.SetPosition(rotatedChestPos);
+    }
+
+    // Move the lamp entity (positioned at same location as slot)
+    if (Lamp.Exists()) {
+      Lamp.SetPosition(adjustedPosition);
+    }
+  }
+
+  #endregion
   #endregion
 }

@@ -2,8 +2,10 @@ using System.Collections.Generic;
 using ProjectM;
 using ScarletCore.Systems;
 using ScarletJackpot.Models;
+using ScarletJackpot.Patches;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace ScarletJackpot.Services;
 
@@ -24,7 +26,7 @@ internal static class SlotService {
 
     foreach (var entity in query) {
       if (!entity.Has<NameableInteractable>()) continue;
-      if (entity.IdEquals(Ids.Slot)) {
+      if (entity.IdEquals(SlotId)) {
         var slot = new SlotModel(entity);
         Register(slot);
       }
@@ -80,6 +82,79 @@ internal static class SlotService {
     return FromSlot.ContainsKey(slot) || FromSlotChest.ContainsKey(slot);
   }
 
+  /// <summary>
+  /// Finds the slot machine that the player is currently hovering over
+  /// </summary>
+  /// <param name="player">Player entity</param>
+  /// <returns>SlotModel if found, null otherwise</returns>
+  public static SlotModel GetSlotFromPlayerHover(Entity player) {
+    if (player == Entity.Null || !player.Has<EntityInput>()) {
+      return null;
+    }
+
+    var entityInput = player.Read<EntityInput>();
+    var hoveredEntity = entityInput.HoveredEntity;
+
+    if (hoveredEntity == Entity.Null) {
+      return null;
+    }
+
+    return Get(hoveredEntity);
+  }
+
+  /// <summary>
+  /// Finds the closest slot machine to the player's cursor position in the world
+  /// </summary>
+  /// <param name="player">Player entity</param>
+  /// <param name="maxDistance">Maximum search distance from cursor</param>
+  /// <returns>Closest SlotModel if found within range, null otherwise</returns>
+  public static SlotModel GetSlotFromPlayerCursor(Entity player, float maxDistance = 5f) {
+    if (player == Entity.Null || !player.Has<EntityInput>()) {
+      return null;
+    }
+
+    var entityInput = player.Read<EntityInput>();
+    var cursorWorldPosition = entityInput.AimPosition;
+
+    SlotModel closestSlot = null;
+    float closestDistance = float.MaxValue;
+
+    foreach (var slot in FromSlot.Values) {
+      if (slot == null || slot.Position.Equals(float3.zero)) continue;
+
+      float distance = math.distance(cursorWorldPosition, slot.Position);
+      if (distance <= maxDistance && distance < closestDistance) {
+        closestDistance = distance;
+        closestSlot = slot;
+      }
+    }
+
+    return closestSlot;
+  }
+
+  /// <summary>
+  /// Finds the closest slot machine to the player within a specified range
+  /// </summary>
+  /// <param name="playerPosition">Player position</param>
+  /// <param name="maxDistance">Maximum search distance</param>
+  /// <returns>Closest SlotModel if found within range, null otherwise</returns>
+  public static SlotModel GetClosestSlot(float3 playerPosition, float maxDistance = 10f) {
+    SlotModel closestSlot = null;
+    float closestDistance = float.MaxValue;
+
+    foreach (var slot in FromSlot.Values) {
+      if (slot == null || slot.Position.Equals(float3.zero)) continue;
+
+      float distance = math.distance(playerPosition, slot.Position);
+      if (distance <= maxDistance && distance < closestDistance) {
+        closestDistance = distance;
+        closestSlot = slot;
+      }
+    }
+
+    return closestSlot;
+  }
+
   public static void ClearAll() {
     EntityQueryBuilder queryBuilder = new(Allocator.Temp);
     queryBuilder.AddAll(ComponentType.ReadOnly<NameableInteractable>());
@@ -87,14 +162,29 @@ internal static class SlotService {
 
     var query = GameSystems.EntityManager.CreateEntityQuery(ref queryBuilder).ToEntityArray(Allocator.Temp);
 
-    foreach (var entity in query) {
-      if (!entity.Has<NameableInteractable>()) continue;
-      if (entity.IdEquals(Ids.Slot)) {
-        if (entity.Has<Follower>()) {
-          var follower = entity.Read<Follower>().Followed._Value;
-          follower.Destroy();
+    foreach (var slot in query) {
+      if (!slot.Has<NameableInteractable>()) continue;
+      if (slot.IdEquals(SlotId)) {
+        var slotChest = slot.Read<Follower>().Followed._Value;
+        var lamp = slotChest.Read<Follower>().Followed._Value;
+        slotChest.Destroy();
+        lamp.Destroy();
+        slot.Destroy();
+      }
+    }
+  }
+
+  public static void CheckAndClearInactivePlayers() {
+    // Limpar jogadores inativos no InteractPatch
+    InteractPatch.CleanupInactivePlayers();
+
+    // Limpar jogadores inativos nos slots
+    foreach (var slot in FromSlotChest.Values) {
+      if (slot.HasCurrentPlayer()) {
+        // Se o jogador atual não está mais interagindo, limpar
+        if (!slot.IsPlayerInteracting(slot.CurrentPlayer)) {
+          slot.ClearCurrentPlayer();
         }
-        entity.Destroy();
       }
     }
   }

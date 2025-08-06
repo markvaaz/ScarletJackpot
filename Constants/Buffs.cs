@@ -1,0 +1,10 @@
+using Stunlock.Core;
+
+namespace ScarletJackpot.Constants;
+
+internal static class Buffs {
+  public static readonly PrefabGUID Invulnerable = new(-480024072);
+  public static readonly PrefabGUID DisableAggro = new(1934061152);
+  public static readonly PrefabGUID Immaterial = new(1360141727);
+  public static readonly PrefabGUID Invisibility = new(1880224358);
+}
