@@ -7,10 +7,10 @@ using ScarletCore.Systems;
 using ScarletCore.Utils;
 using ScarletJackpot.Models;
 using ScarletJackpot.Utils;
-using ScarletJackpot.Constants;
 using ScarletJackpot.Data;
 using Stunlock.Core;
 using Unity.Entities;
+using ScarletJackpot.Constants;
 
 namespace ScarletJackpot.Services;
 
@@ -21,6 +21,8 @@ internal class SlotGameLogic {
   private const int ANIMATION_STOP_ITERATIONS = 75;
   private const int DELAYED_FRAMES = 10;
   private const int COLUMN_START_DELAY = 5;
+  private const int LAMP_COLOR_COUNT = 10; // Cores de 0 a 9
+  private const int LAMP_COLOR_CHANGE_FREQUENCY = 3; // Mudar cor a cada 3 iterações
 
   private readonly int[] _itemColumns = [1, 3, 5];
   private readonly SlotModel _slotModel;
@@ -31,6 +33,10 @@ internal class SlotGameLogic {
   private readonly Dictionary<int, int> _columnPlacementCounter = []; // Rastrear qual linha estamos preenchendo por coluna
   private bool _hasPlannedResults = false;
 
+  // Lamp color animation state
+  private byte _currentLampColor = 0;
+  private bool _isAnimating = false;
+
   public SlotGameLogic(SlotModel slotModel) {
     _slotModel = slotModel ?? throw new ArgumentNullException(nameof(slotModel));
   }
@@ -40,6 +46,12 @@ internal class SlotGameLogic {
   public void StartAnimation() {
     ClearWinIndicators();
     PrepareSlotResults();
+
+    // Iniciar animação das cores da lâmpada
+    _isAnimating = true;
+    _currentLampColor = 0;
+    StartLampColorAnimation();
+
     ActionScheduler.DelayedFrames(StartStaggeredAnimation, DELAYED_FRAMES);
   }
 
@@ -52,6 +64,9 @@ internal class SlotGameLogic {
   }
 
   public void PopulateSlots() {
+    // Parar animação das cores da lâmpada se estiver rodando
+    StopLampColorAnimation();
+
     var random = new System.Random();
     var usedPerColumn = InitializeUsedItemsPerColumn();
 
@@ -227,6 +242,30 @@ internal class SlotGameLogic {
     return WeightedRandomSelector.SelectItem(weightedWinItems, random);
   }
 
+  #region Lamp Color Animation
+
+  private void StartLampColorAnimation() {
+    if (!_isAnimating) return;
+
+    // Mudar para a próxima cor
+    _currentLampColor = (byte)((_currentLampColor + 1) % LAMP_COLOR_COUNT);
+    _slotModel.ChangeLampColor(_currentLampColor);
+
+    // Agendar próxima mudança de cor
+    ActionScheduler.DelayedFrames(() => {
+      StartLampColorAnimation();
+    }, LAMP_COLOR_CHANGE_FREQUENCY);
+  }
+
+  private void StopLampColorAnimation() {
+    _isAnimating = false;
+    // Resetar para cor padrão (0)
+    _currentLampColor = 0;
+    _slotModel.ChangeLampColor(_currentLampColor);
+  }
+
+  #endregion
+
   private void StartStaggeredAnimation() {
     for (int i = 0; i < _itemColumns.Length; i++) {
       int columnIndex = i;
@@ -377,6 +416,9 @@ internal class SlotGameLogic {
   #region Win Detection and Rewards
 
   private void ProcessSlotResults() {
+    // Parar animação das cores da lâmpada
+    StopLampColorAnimation();
+
     var wins = DetectWins();
     var raghandsWin = wins.ContainsValue(new PrefabGUID(1216450741));
 
@@ -480,6 +522,15 @@ internal class SlotGameLogic {
       return;
     }
 
+    BuffService.TryApplyBuff(player, Buffs.VictoryVoiceLineBuff); // 5 segundos de duração
+
+    // Obter valor da aposta do jogador para calcular multiplicador
+    var playerData = player.GetPlayerData();
+    var betAmount = SlotService.GetBetAmount(playerData.PlatformId);
+    var betMultiplier = CalculateBetMultiplier(betAmount);
+
+    Log.Info($"Bet amount: {betAmount}, Multiplier: {betMultiplier:F2}x");
+
     foreach (var win in wins) {
       var winningItem = win.Value;
       var prize = GetPrizeForItem(winningItem);
@@ -487,10 +538,14 @@ internal class SlotGameLogic {
       if (prize.Prefab != 0 && prize.Amount > 0) {
         var prizeGuid = new PrefabGUID(prize.Prefab);
 
+        // Aplicar multiplicador e arredondar para cima
+        var multipliedAmount = prize.Amount * betMultiplier;
+        var finalAmount = (int)Math.Ceiling(multipliedAmount);
+
         try {
           // Usar AddItem para entregar ao jogador (não precisa de slot específico)
-          InventoryService.AddItem(player, prizeGuid, prize.Amount);
-          Log.Info($"Player won {prize.Amount}x {prize.Prefab} from {winningItem.GuidHash}");
+          InventoryService.AddItem(player, prizeGuid, finalAmount);
+          Log.Info($"Player won {finalAmount}x {prize.Prefab} (base: {prize.Amount}, multiplier: {betMultiplier:F2}x) from {winningItem.GuidHash}");
         } catch (Exception ex) {
           Log.Error($"Error delivering prize to player: {ex.Message}");
         }
@@ -500,6 +555,23 @@ internal class SlotGameLogic {
 
   private Prize GetPrizeForItem(PrefabGUID item) {
     return PrizeItemMap.Prizes.GetValueOrDefault(item, new Prize(0, 0));
+  }
+
+  public static float CalculateBetMultiplier(int betAmount) {
+    var minBet = SPIN_MIN_AMOUNT;
+    var maxBet = SPIN_MAX_AMOUNT;
+    var maxMultiplier = MAX_BET_MULTIPLIER;
+
+    // Evitar divisão por zero se min == max
+    if (minBet >= maxBet) {
+      return 1.0f;
+    }
+
+    // Escala linear: 1x no mínimo, maxMultiplier no máximo
+    var ratio = (float)(betAmount - minBet) / (maxBet - minBet);
+    ratio = Math.Max(0f, Math.Min(1f, ratio)); // Clamp entre 0 e 1
+
+    return 1.0f + (ratio * (maxMultiplier - 1.0f));
   }
 
   #endregion
