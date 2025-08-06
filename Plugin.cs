@@ -66,7 +66,8 @@ public class Plugin : BasePlugin {
     Settings.Section("Spin Cost")
       .Add("CostPrefabGUID", 862477668, "The PrefabGUID of the item to be consumed for each spin.")
       .Add("MinAmount", 100, "The minimum amount of the item to be consumed for each spin.")
-      .Add("MaxAmount", 1000, "The maximum amount of the item to be consumed for each spin.");
+      .Add("MaxAmount", 1000, "The maximum amount of the item to be consumed for each spin.")
+      .Add("MaxBetMultiplier", 3f, "Maximum prize multiplier. Min bet = 1x multiplier, Max bet = this value. Example: 3.0 means max bet gives 3x more prizes than min bet.");
 
     Settings.Section("RTP Control")
       .Add("RTPRate", 0.85f, "Return to Player rate (0.0 to 1.0). Higher values = more player-friendly.")
