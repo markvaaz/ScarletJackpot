@@ -6,8 +6,7 @@ namespace ScarletJackpot.Commands;
 
 [CommandGroup("slot")]
 public static class PlayerCommands {
-
-  [Command("setbet")]
+  [Command("bet")]
   public static void SetBet(ChatCommandContext ctx, int amount) {
     if (!PlayerService.TryGetById(ctx.User.PlatformId, out var player)) {
       ctx.Reply("Player not found.");
