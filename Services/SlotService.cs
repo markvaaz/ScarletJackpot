@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using ProjectM;
+using ScarletCore.Data;
 using ScarletCore.Systems;
+using ScarletCore.Utils;
 using ScarletJackpot.Models;
 using ScarletJackpot.Patches;
 using Unity.Collections;
@@ -33,7 +35,10 @@ internal static class SlotService {
     }
   }
 
-  public static void SetBetAmount(ulong playerId, int amount) {
+  public static void SetBetAmount(PlayerData player, int amount) {
+    var playerId = player.PlatformId;
+    var multiplier = SlotGameLogic.CalculateBetMultiplier(amount);
+    player.SendMessage($"Bet set to ~{amount}~ (Prize multiplier: ~{multiplier:F2}x~)".FormatSuccess());
     CurrentBetAmount[playerId] = amount;
   }
 
