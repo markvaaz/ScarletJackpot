@@ -56,7 +56,7 @@ internal class SlotGameLogic {
   }
 
   public void AnimateAllColumnsSync() {
-    var random = new System.Random();
+    var random = new Random();
 
     foreach (var col in _itemColumns) {
       ProcessColumnAnimation(col, random);
@@ -67,7 +67,7 @@ internal class SlotGameLogic {
     // Parar animação das cores da lâmpada se estiver rodando
     StopLampColorAnimation();
 
-    var random = new System.Random();
+    var random = new Random();
     var usedPerColumn = InitializeUsedItemsPerColumn();
 
     ClearWinIndicators();
@@ -88,7 +88,7 @@ internal class SlotGameLogic {
     _plannedWins.Clear();
     _columnPlacementCounter.Clear();
     _hasPlannedResults = true;
-    var random = new System.Random();
+    var random = new Random();
 
     foreach (var col in _itemColumns) {
       _columnPlacementCounter[col] = 0;
@@ -96,14 +96,9 @@ internal class SlotGameLogic {
 
     FillMatrixWithUniqueColumns(random);
     ApplyWinningLines(random);
-    LogFinalMatrix();
-
-    if (_plannedWins.Values.Any(item => item.GuidHash == 1216450741)) {
-      Log.Info("Raghands planned - will steal all wins!");
-    }
   }
 
-  private void FillMatrixWithUniqueColumns(System.Random random) {
+  private void FillMatrixWithUniqueColumns(Random random) {
     for (int col = 0; col < 3; col++) {
       var usedItems = new HashSet<PrefabGUID>();
 
@@ -123,7 +118,7 @@ internal class SlotGameLogic {
     }
   }
 
-  private void ApplyWinningLines(System.Random random) {
+  private void ApplyWinningLines(Random random) {
     for (int row = 0; row < TOTAL_ROWS; row++) {
       if (ShouldCreateWinForRow(random)) {
         var winningItem = SelectWinningItem(random);
@@ -132,21 +127,19 @@ internal class SlotGameLogic {
         for (int col = 0; col < 3; col++) {
           _finalResults[row, col] = winningItem;
         }
-
-        Log.Info($"Planned winning line {row}: {winningItem.GuidHash}");
       }
     }
 
     EnsureNoColumnRepeatsAfterWins(random);
   }
 
-  private void EnsureNoColumnRepeatsAfterWins(System.Random random) {
+  private void EnsureNoColumnRepeatsAfterWins(Random random) {
     for (int col = 0; col < 3; col++) {
       FixColumnRepeatsSmartly(col, random);
     }
   }
 
-  private void FixColumnRepeatsSmartly(int col, System.Random random) {
+  private void FixColumnRepeatsSmartly(int col, Random random) {
     var columnItems = new List<PrefabGUID>();
     for (int row = 0; row < 3; row++) {
       columnItems.Add(_finalResults[row, col]);
@@ -181,7 +174,7 @@ internal class SlotGameLogic {
     }
   }
 
-  private void FixColumnKeepingWinningLines(int col, System.Random random) {
+  private void FixColumnKeepingWinningLines(int col, Random random) {
     var winningRows = new HashSet<int>();
     var nonWinningRows = new List<int>();
 
@@ -218,19 +211,11 @@ internal class SlotGameLogic {
     }
   }
 
-  private void LogFinalMatrix() {
-    Log.Info("=== PLANNED FINAL RESULTS ===");
-    for (int row = 0; row < 3; row++) {
-      Log.Info($"Row {row}: [{_finalResults[row, 0].GuidHash}][{_finalResults[row, 1].GuidHash}][{_finalResults[row, 2].GuidHash}]");
-    }
-    Log.Info("=============================");
-  }
-
-  private bool ShouldCreateWinForRow(System.Random random) {
+  private bool ShouldCreateWinForRow(Random random) {
     return random.NextDouble() < BASE_WIN_CHANCE;
   }
 
-  private PrefabGUID SelectWinningItem(System.Random random) {
+  private PrefabGUID SelectWinningItem(Random random) {
     var weightedWinItems = new Dictionary<PrefabGUID, float>();
 
     foreach (var item in SlotItems.WeightedItems.Keys) {
@@ -314,7 +299,7 @@ internal class SlotGameLogic {
   }
 
   private void AnimateSingleColumnWithPlannedResults(int column, int columnIndex) {
-    var random = new System.Random();
+    var random = new Random();
     var currentItems = GetCurrentColumnItems(column);
 
     RemoveBottomItem(column);
@@ -328,7 +313,7 @@ internal class SlotGameLogic {
     SlotModel.SetAllItemsMaxAmount(_slotModel.SlotChest, 1);
   }
 
-  private PrefabGUID SelectItemFromPlannedMatrix(int column, int columnIndex, System.Random random) {
+  private PrefabGUID SelectItemFromPlannedMatrix(int column, int columnIndex, Random random) {
     int matrixColumnIndex = Array.IndexOf(_itemColumns, column);
 
     if (matrixColumnIndex >= 0 && matrixColumnIndex < 3) {
@@ -336,7 +321,6 @@ internal class SlotGameLogic {
 
       if (targetRow >= 0 && targetRow < 3) {
         var plannedItem = _finalResults[targetRow, matrixColumnIndex];
-        Log.Info($"Placing planned item {plannedItem.GuidHash} at column {column} (matrix col {matrixColumnIndex}), row {targetRow}");
 
         _columnPlacementCounter[column]++;
 
@@ -348,11 +332,11 @@ internal class SlotGameLogic {
   }
 
   private void AnimateSingleColumn(int column) {
-    var random = new System.Random();
+    var random = new Random();
     ProcessColumnAnimation(column, random);
   }
 
-  private void ProcessColumnAnimation(int col, System.Random random) {
+  private void ProcessColumnAnimation(int col, Random random) {
     var currentItems = GetCurrentColumnItems(col);
     RemoveBottomItem(col);
     MoveItemsDown(col);
@@ -389,7 +373,7 @@ internal class SlotGameLogic {
     }
   }
 
-  private void AddNewTopItem(int col, List<PrefabGUID> currentItems, System.Random random) {
+  private void AddNewTopItem(int col, List<PrefabGUID> currentItems, Random random) {
     var newItem = SelectNewItemWithWeight(currentItems, random);
     int topSlotIndex = 0 * TOTAL_COLUMNS + col;
 
@@ -398,7 +382,7 @@ internal class SlotGameLogic {
     SlotModel.SetAllItemsMaxAmount(_slotModel.SlotChest, 1);
   }
 
-  private static PrefabGUID SelectNewItemWithWeight(List<PrefabGUID> currentItems, System.Random random) {
+  private static PrefabGUID SelectNewItemWithWeight(List<PrefabGUID> currentItems, Random random) {
     var used = new HashSet<PrefabGUID>(currentItems);
     used.Remove(default);
 
@@ -423,14 +407,11 @@ internal class SlotGameLogic {
     var raghandsWin = wins.ContainsValue(new PrefabGUID(1216450741));
 
     if (raghandsWin) {
-      Log.Info("Raghands appeared! All wins stolen!");
       ClearWinIndicators();
     } else if (wins.Count > 0) {
-      Log.Info($"Player won on {wins.Count} line(s)!");
       AddWinIndicators(wins);
       DeliverWinRewards(wins);
     } else {
-      Log.Info("No wins this spin.");
       ClearWinIndicators();
     }
 
@@ -440,7 +421,6 @@ internal class SlotGameLogic {
 
     // Notify slot model that animation finished
     _slotModel.OnAnimationFinished();
-    Log.Info("Slot machine ready for next spin!");
   }
 
   private void AddWinIndicators(Dictionary<int, PrefabGUID> wins) {
@@ -493,7 +473,6 @@ internal class SlotGameLogic {
 
       if (rowItems[0] != default && rowItems[0] == rowItems[1] && rowItems[1] == rowItems[2]) {
         wins[row] = rowItems[0];
-        Log.Info($"Win confirmed on row {row}: {rowItems[0].GuidHash}");
       }
     }
 
@@ -518,7 +497,6 @@ internal class SlotGameLogic {
   private void DeliverWinRewards(Dictionary<int, PrefabGUID> wins) {
     var player = _slotModel.CurrentPlayer;
     if (player == Entity.Null || !player.Exists() || !player.Has<PlayerCharacter>()) {
-      Log.Warning("Cannot deliver rewards: Player is null or invalid");
       return;
     }
 
@@ -528,8 +506,6 @@ internal class SlotGameLogic {
     var playerData = player.GetPlayerData();
     var betAmount = SlotService.GetBetAmount(playerData.PlatformId);
     var betMultiplier = CalculateBetMultiplier(betAmount);
-
-    Log.Info($"Bet amount: {betAmount}, Multiplier: {betMultiplier:F2}x");
 
     foreach (var win in wins) {
       var winningItem = win.Value;
@@ -545,7 +521,6 @@ internal class SlotGameLogic {
         try {
           // Usar AddItem para entregar ao jogador (não precisa de slot específico)
           InventoryService.AddItem(player, prizeGuid, finalAmount);
-          Log.Info($"Player won {finalAmount}x {prize.Prefab} (base: {prize.Amount}, multiplier: {betMultiplier:F2}x) from {winningItem.GuidHash}");
         } catch (Exception ex) {
           Log.Error($"Error delivering prize to player: {ex.Message}");
         }
@@ -585,7 +560,7 @@ internal class SlotGameLogic {
     return usedPerColumn;
   }
 
-  private static PrefabGUID SelectUniqueWeightedItemForColumn(int col, Dictionary<int, HashSet<PrefabGUID>> usedPerColumn, System.Random random) {
+  private static PrefabGUID SelectUniqueWeightedItemForColumn(int col, Dictionary<int, HashSet<PrefabGUID>> usedPerColumn, Random random) {
     var availableItems = SlotItems.WeightedItems.Where(kvp => !usedPerColumn[col].Contains(kvp.Key)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
 
     if (availableItems.Count == 0) {

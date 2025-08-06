@@ -15,7 +15,7 @@ using Unity.Transforms;
 namespace ScarletJackpot.Models;
 
 internal class SlotModel {
-  private const int SPIN_TIMEOUT_SECONDS = 30;
+  private const int SPIN_TIMEOUT_SECONDS = 60;
   private const int DELAYED_FRAMES = 10;
 
   public int[] ItemColumns { get; } = [1, 3, 5];
@@ -39,7 +39,6 @@ internal class SlotModel {
     get {
       if (_defaultStandEntity == Entity.Null) {
         if (!PrefabGuidToEntityMap.TryGetValue(Spawnable.SlotChest, out var defaultStand)) {
-          Log.Error($"Failed to find prefab for GUID: {Spawnable.SlotChest.GuidHash}");
           return Entity.Null;
         }
         _defaultStandEntity = defaultStand;
@@ -64,7 +63,6 @@ internal class SlotModel {
 
   public SlotModel(Entity slotEntity) {
     if (slotEntity == Entity.Null || !slotEntity.Has<NameableInteractable>()) {
-      Log.Error("Invalid slot entity provided.");
       return;
     }
 
@@ -101,12 +99,16 @@ internal class SlotModel {
 
     // Se o jogador atual não está mais interagindo, pode trocar
     if (!IsPlayerInteracting(CurrentPlayer)) {
+      StartSpinTimeout();
       CurrentPlayer = player;
       return true;
     }
 
     // Se é o mesmo jogador, mantém
     if (CurrentPlayer == player) {
+      if (_spinTimeoutActionId == default) {
+        StartSpinTimeout();
+      }
       return true;
     }
 
@@ -136,24 +138,16 @@ internal class SlotModel {
   }
 
   private void HandleSpinTimeout() {
-    if (!IsRunning) return;
-
-    // Parar a animação e limpar estado
-    IsRunning = false;
-
     // Enviar mensagem ao jogador
-    if (CurrentPlayer != Entity.Null && CurrentPlayer.Has<PlayerCharacter>()) {
+    if (CurrentPlayer != Entity.Null) {
       var playerData = CurrentPlayer.GetPlayerData();
-      if (playerData != null) {
-        MessageService.Send(playerData, $"Slot machine spin timed out after {SPIN_TIMEOUT_SECONDS} seconds. Animation stopped.".FormatError());
-      }
+
+      playerData.SendMessage($"Slot machine timedout.".FormatError());
+      BuffService.TryRemoveBuff(CurrentPlayer, SlotInteractBuff);
     }
 
     // Limpar jogador atual
     CurrentPlayer = Entity.Null;
-
-    // Resetar slot machine para estado inicial
-    _gameLogic.PopulateSlots();
   }
 
   /// <summary>
@@ -161,7 +155,6 @@ internal class SlotModel {
   /// </summary>
   internal void OnAnimationFinished() {
     IsRunning = false;
-    CancelSpinTimeout();
   }
 
   private static float3 AdjustPosition(float3 position) {
@@ -208,7 +201,6 @@ internal class SlotModel {
 
   private void BindSlotWithChest() {
     if (Slot == Entity.Null || SlotChest == Entity.Null) {
-      Log.Error("Slot or SlotChest is not initialized properly.");
       return;
     }
 
@@ -301,8 +293,6 @@ internal class SlotModel {
     }
   }
 
-  #region Static Entity Utilities
-
   public static void SetAllItemsMaxAmount(Entity entity, int maxAmount) {
     var inventoryBuffer = InventoryService.GetInventoryItems(entity);
 
@@ -315,7 +305,6 @@ internal class SlotModel {
 
   public static void SetContainerSize(PrefabGUID prefabGUID, int slots) {
     if (!PrefabGuidToEntityMap.TryGetValue(prefabGUID, out var prefabEntity)) {
-      Log.Error($"Failed to find prefab for GUID: {prefabGUID.GuidHash}");
       return;
     }
 
@@ -331,7 +320,6 @@ internal class SlotModel {
 
   public static int GetContainerSize(PrefabGUID prefabGUID) {
     if (!PrefabGuidToEntityMap.TryGetValue(prefabGUID, out var prefabEntity)) {
-      Log.Error($"Failed to find prefab for GUID: {prefabGUID.GuidHash}");
       return -1;
     }
 
@@ -405,7 +393,17 @@ internal class SlotModel {
     return (right, forward, up);
   }
 
-  #region Rotation Methods
+  public void Destroy() {
+    if (SlotChest.Exists()) {
+      SlotChest.Destroy();
+    }
+    if (Slot.Exists()) {
+      Slot.Destroy();
+    }
+    if (Lamp.Exists()) {
+      Lamp.Destroy();
+    }
+  }
 
   /// <summary>
   /// Rotates the slot machine by the specified number of 90-degree steps
@@ -413,7 +411,6 @@ internal class SlotModel {
   /// <param name="rotationSteps">Number of 90-degree steps (0-3)</param>
   public void RotateSlot(int rotationSteps) {
     if (IsRunning) {
-      Log.Warning("Cannot rotate slot machine while spinning!");
       return;
     }
 
@@ -437,7 +434,6 @@ internal class SlotModel {
   /// <param name="targetRotation">Target rotation quaternion</param>
   public void AlignToRotation(quaternion targetRotation) {
     if (IsRunning) {
-      Log.Warning("Cannot rotate slot machine while spinning!");
       return;
     }
 
@@ -512,7 +508,6 @@ internal class SlotModel {
   /// <param name="newPosition">New position for the slot machine</param>
   public void MoveSlot(float3 newPosition) {
     if (IsRunning) {
-      Log.Warning("Cannot move slot machine while spinning!");
       return;
     }
 
@@ -535,7 +530,4 @@ internal class SlotModel {
       Lamp.SetPosition(adjustedPosition);
     }
   }
-
-  #endregion
-  #endregion
 }
