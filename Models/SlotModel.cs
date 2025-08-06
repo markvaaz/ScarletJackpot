@@ -11,6 +11,7 @@ using Stunlock.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEngine;
 
 namespace ScarletJackpot.Models;
 
@@ -23,16 +24,15 @@ internal class SlotModel {
   public Entity SlotChest { get; private set; }
   public Entity Slot { get; private set; }
   public Entity Lamp { get; private set; }
+  public Entity Dummy { get; private set; }
   public bool IsRunning { get; private set; } = false;
   public Entity CurrentPlayer { get; private set; } = Entity.Null;
   private ActionId _spinTimeoutActionId;
 
-  // Rotation properties
   public float3 Position { get; private set; }
   public quaternion Rotation => Slot.Read<Rotation>().Value;
 
-  // Game logic handler
-  private SlotGameLogic _gameLogic;
+  private readonly SlotGameLogic _gameLogic;
 
   private static Entity _defaultStandEntity;
   public static Entity DefaultSlotEntity {
@@ -54,9 +54,9 @@ internal class SlotModel {
     CreateSlotEntity(adjustedPosition);
     CreateSlotChest(adjustedPosition);
     CreateLampEntity(adjustedPosition);
-    BindSlotWithChest();
+    CreateDummyEntity(adjustedPosition);
+    BindAll();
 
-    // Initialize game logic
     _gameLogic = new SlotGameLogic(this);
     ActionScheduler.DelayedFrames(() => _gameLogic.PopulateSlots(), DELAYED_FRAMES);
   }
@@ -66,20 +66,59 @@ internal class SlotModel {
       return;
     }
 
-    Slot = slotEntity;
-    SlotChest = slotEntity.Read<Follower>().Followed._Value;
-    Lamp = SlotChest.Read<Follower>().Followed._Value;
+    LoadAll(slotEntity);
 
-    // Store position from existing entity
     if (Slot.Has<LocalToWorld>()) {
       Position = Slot.Read<LocalToWorld>().Position;
     }
 
-    // Initialize game logic
     _gameLogic = new SlotGameLogic(this);
   }
 
   public bool HasCurrentPlayer() => CurrentPlayer != Entity.Null;
+
+  public void LoadAll(Entity slotEntity) {
+    Slot = slotEntity;
+    if (Slot.Has<Follower>()) {
+      SlotChest = slotEntity.Read<Follower>().Followed._Value;
+      if (SlotChest.Has<Follower>()) {
+        Lamp = SlotChest.Read<Follower>().Followed._Value;
+        if (Lamp.Has<Follower>()) {
+          Dummy = Lamp.Read<Follower>().Followed._Value;
+        }
+      }
+    }
+  }
+
+  private void BindAll() {
+    if (Slot == Entity.Null || SlotChest == Entity.Null) {
+      return;
+    }
+
+    if (!Slot.Has<Follower>()) {
+      Slot.Add<Follower>();
+    }
+
+    if (!SlotChest.Has<Follower>()) {
+      SlotChest.Add<Follower>();
+    }
+
+    if (!Lamp.Has<Follower>()) {
+      Lamp.Add<Follower>();
+    }
+
+    Slot.With((ref Follower follower) => {
+      follower.Followed._Value = SlotChest;
+    });
+
+    SlotChest.AddWith((ref Follower follower) => {
+      follower.Followed._Value = Lamp;
+    });
+
+    Lamp.With((ref Follower follower) => {
+      follower.Followed._Value = Dummy;
+    });
+  }
 
   public bool IsPlayerInteracting(Entity player) {
     if (player == Entity.Null || !player.Has<PlayerCharacter>()) return false;
@@ -89,22 +128,25 @@ internal class SlotModel {
   }
 
   public bool SetCurrentPlayer(Entity player) {
-    if (IsRunning) return false; // Não pode trocar jogador durante spin
+    if (IsRunning && player != CurrentPlayer) {
+      Log.Info(1);
+      return false;
+    }
 
-    // Se não há jogador atual, define este
     if (CurrentPlayer == Entity.Null) {
+      Log.Info(2);
       CurrentPlayer = player;
-      return true;
-    }
-
-    // Se o jogador atual não está mais interagindo, pode trocar
-    if (!IsPlayerInteracting(CurrentPlayer)) {
       StartSpinTimeout();
-      CurrentPlayer = player;
       return true;
     }
 
-    // Se é o mesmo jogador, mantém
+    if (!IsPlayerInteracting(CurrentPlayer)) {
+      Log.Info(3);
+      CurrentPlayer = player;
+      StartSpinTimeout();
+      return true;
+    }
+
     if (CurrentPlayer == player) {
       if (_spinTimeoutActionId == default) {
         StartSpinTimeout();
@@ -112,21 +154,21 @@ internal class SlotModel {
       return true;
     }
 
-    // Outro jogador já está usando
+    Log.Info(5);
+
     return false;
   }
 
   public void ClearCurrentPlayer() {
-    if (!IsRunning) { // Só limpa se não estiver rodando
+    if (!IsRunning) {
       CurrentPlayer = Entity.Null;
       CancelSpinTimeout();
     }
   }
 
   private void StartSpinTimeout() {
-    CancelSpinTimeout(); // Cancelar timeout anterior se existir
+    CancelSpinTimeout();
 
-    // Agendar timeout usando ActionScheduler.Delayed (em segundos)
     _spinTimeoutActionId = ActionScheduler.Delayed(HandleSpinTimeout, SPIN_TIMEOUT_SECONDS);
   }
 
@@ -138,21 +180,20 @@ internal class SlotModel {
   }
 
   private void HandleSpinTimeout() {
-    // Enviar mensagem ao jogador
     if (CurrentPlayer != Entity.Null) {
       var playerData = CurrentPlayer.GetPlayerData();
+
+      if (!IsPlayerInteracting(CurrentPlayer)) {
+        return;
+      }
 
       playerData.SendMessage($"Slot machine timedout.".FormatError());
       BuffService.TryRemoveBuff(CurrentPlayer, SlotInteractBuff);
     }
 
-    // Limpar jogador atual
-    CurrentPlayer = Entity.Null;
+    ClearCurrentPlayer();
   }
 
-  /// <summary>
-  /// Called by SlotGameLogic when animation finishes
-  /// </summary>
   internal void OnAnimationFinished() {
     IsRunning = false;
   }
@@ -168,10 +209,6 @@ internal class SlotModel {
 
   private void CreateLampEntity(float3 position) {
     Lamp = UnitSpawnerService.ImmediateSpawn(Spawnable.Lamp, position, 0f, 0f);
-
-    SlotChest.AddWith((ref Follower follower) => {
-      follower.Followed._Value = Lamp;
-    });
 
     if (Lamp != Entity.Null) {
       Lamp.With((ref EditableTileModel editableTileModel) => {
@@ -194,23 +231,17 @@ internal class SlotModel {
     });
   }
 
+  private void CreateDummyEntity(float3 position) {
+    Dummy = UnitSpawnerService.ImmediateSpawn(Spawnable.Dummy, position, 0f, 0f);
+
+    BuffService.TryApplyBuff(Dummy, Buffs.Invulnerable, -1);
+    BuffService.TryApplyBuff(Dummy, Buffs.Invisibility, -1);
+    BuffService.TryApplyBuff(Dummy, Buffs.Immaterial, -1);
+  }
+
   private void CreateSlotEntity(float3 position) {
     Slot = UnitSpawnerService.ImmediateSpawn(Spawnable.Slot, position, 0f, 0f);
     ConfigureSlotEntity();
-  }
-
-  private void BindSlotWithChest() {
-    if (Slot == Entity.Null || SlotChest == Entity.Null) {
-      return;
-    }
-
-    if (!Slot.Has<Follower>()) {
-      Slot.Add<Follower>();
-    }
-
-    Slot.With((ref Follower follower) => {
-      follower.Followed._Value = SlotChest;
-    });
   }
 
   private void ConfigureSlotEntity() {
@@ -252,7 +283,6 @@ internal class SlotModel {
 
     IsRunning = true;
 
-    // Iniciar timeout para cancelar se o spin não completar
     StartSpinTimeout();
 
     _gameLogic.StartAnimation();
@@ -289,7 +319,7 @@ internal class SlotModel {
 
   public void StartManualColumnAnimation(int columnIndex, int iterations = 10) {
     if (columnIndex >= 0 && columnIndex < ItemColumns.Length) {
-      // This functionality could be delegated to SlotGameLogic if needed
+
     }
   }
 
@@ -403,18 +433,16 @@ internal class SlotModel {
     if (Lamp.Exists()) {
       Lamp.Destroy();
     }
+    if (Dummy.Exists()) {
+      Dummy.Destroy();
+    }
   }
 
-  /// <summary>
-  /// Rotates the slot machine by the specified number of 90-degree steps
-  /// </summary>
-  /// <param name="rotationSteps">Number of 90-degree steps (0-3)</param>
   public void RotateSlot(int rotationSteps) {
     if (IsRunning) {
       return;
     }
 
-    // Normalize rotation steps to 0-3 range
     rotationSteps = ((rotationSteps % 4) + 4) % 4;
 
     var quaternions = new quaternion[] {
@@ -428,10 +456,6 @@ internal class SlotModel {
     ApplyRotationToEntities(rotationSteps, targetRotation);
   }
 
-  /// <summary>
-  /// Rotates the slot machine to align with a specific quaternion rotation
-  /// </summary>
-  /// <param name="targetRotation">Target rotation quaternion</param>
   public void AlignToRotation(quaternion targetRotation) {
     if (IsRunning) {
       return;
@@ -444,42 +468,33 @@ internal class SlotModel {
       quaternion.RotateY(math.radians(270f))
     };
 
-    // Find closest rotation step
     var forward = math.mul(targetRotation, new float3(0, 0, 1));
     var threshold = 0.4f;
 
     int rotationStep = 0;
-    if (forward.z > threshold) rotationStep = 0;      // North
-    else if (forward.x > threshold) rotationStep = 1;  // East
-    else if (forward.z < -threshold) rotationStep = 2; // South
-    else if (forward.x < -threshold) rotationStep = 3; // West
+    if (forward.z > threshold) rotationStep = 0;
+    else if (forward.x > threshold) rotationStep = 1;
+    else if (forward.z < -threshold) rotationStep = 2;
+    else if (forward.x < -threshold) rotationStep = 3;
 
     var finalRotation = quaternions[rotationStep];
     ApplyRotationToEntities(rotationStep, finalRotation);
   }
 
-  /// <summary>
-  /// Applies rotation to Slot, SlotChest, and Lamp entities
-  /// </summary>
-  /// <param name="rotationStep">Rotation step (0-3)</param>
-  /// <param name="rotation">Target quaternion rotation</param>
   private void ApplyRotationToEntities(int rotationStep, quaternion rotation) {
     var center = Position;
 
-    // Rotate the main slot entity
     if (Slot.Exists()) {
       Slot.SetPosition(center);
       RotateTile(Slot, rotationStep);
     }
 
-    // Rotate and reposition the slot chest
     if (SlotChest.Exists()) {
       var rotatedChestPos = center + math.mul(rotation, SlotChestOffset);
       SlotChest.SetPosition(rotatedChestPos);
       RotateTile(SlotChest, rotationStep);
     }
 
-    // Rotate the lamp entity (positioned at same location as slot)
     if (Lamp.Exists()) {
       Lamp.SetPosition(center);
       RotateTile(Lamp, rotationStep);
