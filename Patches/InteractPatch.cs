@@ -32,9 +32,9 @@ public static class InteractPatch {
       if (!SlotService.FromSlotChest.TryGetValue(slot, out var slotModel)) continue;
 
       // Verificar se já processamos este jogador para este slot
-      if (_lastKnownPlayer.TryGetValue(slot, out var lastPlayer) && lastPlayer == interactingPlayer) {
-        continue; // Mesmo jogador, não precisa reprocessar
-      }
+      // if (_lastKnownPlayer.TryGetValue(slot, out var lastPlayer) && lastPlayer == interactingPlayer) {
+      //   continue; // Mesmo jogador, não precisa reprocessar
+      // }
 
       // Tentar definir este jogador como o atual
       bool canUseSlot = slotModel.SetCurrentPlayer(interactingPlayer);
