@@ -1,6 +1,4 @@
-using System;
 using ScarletCore.Services;
-using ScarletCore.Utils;
 using ScarletJackpot.Services;
 using VampireCommandFramework;
 
