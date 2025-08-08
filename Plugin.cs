@@ -3,7 +3,6 @@ using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
-using ProjectM;
 using ScarletCore.Data;
 using ScarletCore.Events;
 using ScarletCore.Systems;
@@ -74,21 +73,19 @@ public class Plugin : BasePlugin {
       .Add("BaseWinChance", 0.15f, "Base chance for winning lines (0.0 to 1.0). Higher values = more wins.")
       .Add("EnableRTPControl", true, "Enable sophisticated RTP control system for casino-like behavior.");
 
-    // TODO: REVERT PRIZE POOL GUIDS TO 0
-    // 862477668 just for testing
     Settings.Section("Prize Pool")
-      .Add("Fish", 862477668, "The PrefabGUID of the prize item for a row of fish.")
-      .Add("FishAmount", 1, "The amount of items given for a row of fish.")
-      .Add("DuskCaller", 862477668, "The PrefabGUID of the prize item for a row of DuskCaller.")
-      .Add("DuskCallerAmount", 2, "The amount of items given for a row of DuskCaller.")
-      .Add("Gem", 862477668, "The PrefabGUID of the prize item for a row of gems.")
-      .Add("GemAmount", 5, "The amount of items given for a row of gems.")
-      .Add("Jewel", 862477668, "The PrefabGUID of the prize item for a row of jewels.")
-      .Add("JewelAmount", 5, "The amount of items given for a row of jewels.")
-      .Add("MagicStone", 862477668, "The PrefabGUID of the prize item for a row of magic stones.")
-      .Add("MagicAmount", 10, "The amount of items given for a row of magic stones.")
-      .Add("DemonFragment", 862477668, "The PrefabGUID of the prize item for a row of demon fragments (JACKPOT).")
-      .Add("DemonAmount", 50, "The amount of items given for a row of demon fragments.");
+      .Add("Fish", 0, "The PrefabGUID of the prize item for a row of fish.")
+      .Add("FishAmount", 0, "The amount of items given for a row of fish.")
+      .Add("DuskCaller", 0, "The PrefabGUID of the prize item for a row of DuskCaller.")
+      .Add("DuskCallerAmount", 0, "The amount of items given for a row of DuskCaller.")
+      .Add("Gem", 0, "The PrefabGUID of the prize item for a row of gems.")
+      .Add("GemAmount", 0, "The amount of items given for a row of gems.")
+      .Add("Jewel", 0, "The PrefabGUID of the prize item for a row of jewels.")
+      .Add("JewelAmount", 0, "The amount of items given for a row of jewels.")
+      .Add("MagicStone", 0, "The PrefabGUID of the prize item for a row of magic stones.")
+      .Add("MagicAmount", 0, "The amount of items given for a row of magic stones.")
+      .Add("DemonFragment", 0, "The PrefabGUID of the prize item for a row of demon fragments (JACKPOT).")
+      .Add("DemonAmount", 0, "The amount of items given for a row of demon fragments.");
 
     Settings.Section("Rugged Hands")
       .Add("EnableRuggedHands", true, "If enabled, the Rugged Hands item will steal the current prizes from the slot machine (if any). (1% chance)");
