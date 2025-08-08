@@ -6,6 +6,7 @@ using ProjectM.Gameplay.Systems;
 using ProjectM.Shared;
 using ScarletCore.Services;
 using ScarletCore.Utils;
+using ScarletJackpot.Constants;
 using ScarletJackpot.Services;
 using Unity.Collections;
 using Unity.Entities;
@@ -21,7 +22,7 @@ public static class InteractPatch {
     var query = __instance.__query_195794971_3.ToEntityArray(Allocator.Temp);
 
     foreach (var entity in query) {
-      if (entity.GetPrefabGuid() != SlotInteractBuff) continue;
+      if (entity.GetPrefabGuid() != Buffs.SlotInteractBuff) continue;
 
       var interactingPlayer = entity.Read<EntityOwner>().Owner;
 
@@ -58,7 +59,7 @@ public static class InteractPatch {
   public static void CancelInteraction(Entity entity) {
     if (!entity.Exists()) return;
 
-    BuffService.TryRemoveBuff(entity, SlotInteractBuff);
+    BuffService.TryRemoveBuff(entity, Buffs.SlotInteractBuff);
   }
 
   // Limpar jogadores que não estão mais interagindo
