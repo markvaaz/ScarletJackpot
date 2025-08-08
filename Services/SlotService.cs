@@ -21,13 +21,13 @@ internal static class SlotService {
     FromSlotChest.Clear();
 
     EntityQueryBuilder queryBuilder = new(Allocator.Temp);
-    queryBuilder.AddAll(ComponentType.ReadOnly<NameableInteractable>());
+    queryBuilder.AddAll(ComponentType.ReadOnly<UserMapZonePackedRevealElement>());
     queryBuilder.WithOptions(EntityQueryOptions.IncludeDisabled);
 
     var query = GameSystems.EntityManager.CreateEntityQuery(ref queryBuilder).ToEntityArray(Allocator.Temp);
 
     foreach (var entity in query) {
-      if (!entity.Has<NameableInteractable>()) continue;
+      if (!entity.HasId()) continue;
       if (entity.IdEquals(SlotId)) {
         var slot = new SlotModel(entity);
         Register(slot);
@@ -145,13 +145,13 @@ internal static class SlotService {
 
   public static void ClearAll() {
     EntityQueryBuilder queryBuilder = new(Allocator.Temp);
-    queryBuilder.AddAll(ComponentType.ReadOnly<NameableInteractable>());
+    queryBuilder.AddAll(ComponentType.ReadOnly<UserMapZonePackedRevealElement>());
     queryBuilder.WithOptions(EntityQueryOptions.IncludeDisabled);
 
     var query = GameSystems.EntityManager.CreateEntityQuery(ref queryBuilder).ToEntityArray(Allocator.Temp);
 
     foreach (var slot in query) {
-      if (!slot.Has<NameableInteractable>()) continue;
+      if (!slot.HasId()) continue;
       if (slot.IdEquals(SlotId)) {
         if (slot.Has<Follower>()) {
           var slotChest = slot.Read<Follower>().Followed._Value;
