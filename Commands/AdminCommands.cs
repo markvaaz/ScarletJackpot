@@ -9,6 +9,7 @@ using VampireCommandFramework;
 using Unity.Entities;
 using Unity.Mathematics;
 using ProjectM;
+using ScarletJackpot.Constants;
 
 namespace ScarletJackpot.Commands;
 
@@ -25,6 +26,15 @@ public static class AdminCommands {
 
     SlotService.Register(new SlotModel(player.Position));
     ctx.Reply("Slot machine created at your position.".FormatSuccess());
+  }
+
+  [Command("reload", adminOnly: true)]
+  public static void ReloadSlots(ChatCommandContext ctx) {
+    Plugin.LoadSettings();
+    foreach (var slot in SlotService.FromSlot) {
+      BuffService.TryRemoveBuff(slot.Value.CurrentPlayer, Buffs.SlotInteractBuff);
+    }
+    ctx.Reply("Slot machine settings reloaded.".FormatSuccess());
   }
 
   [Command("iwanttoremoveeverything", adminOnly: true)]
