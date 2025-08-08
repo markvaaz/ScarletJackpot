@@ -87,11 +87,6 @@ internal static class SlotService {
     return FromSlot.ContainsKey(slot) || FromSlotChest.ContainsKey(slot);
   }
 
-  /// <summary>
-  /// Finds the slot machine that the player is currently hovering over
-  /// </summary>
-  /// <param name="player">Player entity</param>
-  /// <returns>SlotModel if found, null otherwise</returns>
   public static SlotModel GetSlotFromPlayerHover(Entity player) {
     if (player == Entity.Null || !player.Has<EntityInput>()) {
       return null;
@@ -107,12 +102,6 @@ internal static class SlotService {
     return Get(hoveredEntity);
   }
 
-  /// <summary>
-  /// Finds the closest slot machine to the player's cursor position in the world
-  /// </summary>
-  /// <param name="player">Player entity</param>
-  /// <param name="maxDistance">Maximum search distance from cursor</param>
-  /// <returns>Closest SlotModel if found within range, null otherwise</returns>
   public static SlotModel GetSlotFromPlayerCursor(Entity player, float maxDistance = 5f) {
     if (player == Entity.Null || !player.Has<EntityInput>()) {
       return null;
@@ -137,12 +126,6 @@ internal static class SlotService {
     return closestSlot;
   }
 
-  /// <summary>
-  /// Finds the closest slot machine to the player within a specified range
-  /// </summary>
-  /// <param name="playerPosition">Player position</param>
-  /// <param name="maxDistance">Maximum search distance</param>
-  /// <returns>Closest SlotModel if found within range, null otherwise</returns>
   public static SlotModel GetClosestSlot(float3 playerPosition, float maxDistance = 10f) {
     SlotModel closestSlot = null;
     float closestDistance = float.MaxValue;
@@ -186,13 +169,10 @@ internal static class SlotService {
   }
 
   public static void CheckAndClearInactivePlayers() {
-    // Limpar jogadores inativos no InteractPatch
     InteractPatch.CleanupInactivePlayers();
 
-    // Limpar jogadores inativos nos slots
     foreach (var slot in FromSlotChest.Values) {
       if (slot.HasCurrentPlayer()) {
-        // Se o jogador atual não está mais interagindo, limpar
         if (!slot.IsPlayerInteracting(slot.CurrentPlayer)) {
           slot.ClearCurrentPlayer();
         }
