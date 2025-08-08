@@ -18,8 +18,6 @@ namespace ScarletJackpot.Models;
 internal class SlotModel {
   private const int SPIN_TIMEOUT_SECONDS = 60;
   private const int DELAYED_FRAMES = 10;
-
-  public int[] ItemColumns { get; } = [1, 3, 5];
   public float3 SlotChestOffset => new(0f, 0f, 0.5f);
   public Entity SlotChest { get; private set; }
   public Entity Slot { get; private set; }
@@ -28,24 +26,9 @@ internal class SlotModel {
   public bool IsRunning { get; private set; } = false;
   public Entity CurrentPlayer { get; private set; } = Entity.Null;
   private ActionId _spinTimeoutActionId;
-
   public float3 Position { get; private set; }
   public quaternion Rotation => Slot.Read<Rotation>().Value;
-
   private readonly SlotGameLogic _gameLogic;
-
-  private static Entity _defaultStandEntity;
-  public static Entity DefaultSlotEntity {
-    get {
-      if (_defaultStandEntity == Entity.Null) {
-        if (!PrefabGuidToEntityMap.TryGetValue(Spawnable.SlotChest, out var defaultStand)) {
-          return Entity.Null;
-        }
-        _defaultStandEntity = defaultStand;
-      }
-      return _defaultStandEntity;
-    }
-  }
 
   public SlotModel(float3 position) {
     var adjustedPosition = AdjustPosition(position);
@@ -303,26 +286,6 @@ internal class SlotModel {
     InitializeSlotAnimation();
   }
 
-  public void AnimateAllColumnsSync() {
-    _gameLogic.AnimateAllColumnsSync();
-  }
-
-  public void PopulateSlotsColumns() {
-    _gameLogic.PopulateSlots();
-  }
-
-  public void StopColumnAnimation(int columnIndex) {
-    if (columnIndex >= 0 && columnIndex < ItemColumns.Length) {
-
-    }
-  }
-
-  public void StartManualColumnAnimation(int columnIndex, int iterations = 10) {
-    if (columnIndex >= 0 && columnIndex < ItemColumns.Length) {
-
-    }
-  }
-
   public static void SetAllItemsMaxAmount(Entity entity, int maxAmount) {
     var inventoryBuffer = InventoryService.GetInventoryItems(entity);
 
@@ -501,26 +464,42 @@ internal class SlotModel {
     }
   }
 
-  /// <summary>
-  /// Gets the current rotation step (0-3) of the slot machine
-  /// </summary>
-  /// <returns>Current rotation step</returns>
-  public int GetRotationStep() {
-    var forward = math.mul(Rotation, new float3(0, 0, 1));
-    var threshold = 0.4f;
+  public void RotateOneStep() {
+    if (IsRunning) {
+      return;
+    }
 
-    if (forward.z > threshold) return 0;      // North
-    else if (forward.x > threshold) return 1;  // East
-    else if (forward.z < -threshold) return 2; // South
-    else if (forward.x < -threshold) return 3; // West
+    int currentStep = GetCurrentRotationStepFromEntity();
+    int nextStep = (currentStep + 1) % 4;
 
-    return 0; // Default to north
+    var quaternions = new quaternion[] {
+      quaternion.identity,
+      quaternion.RotateY(math.radians(90f)),
+      quaternion.RotateY(math.radians(180f)),
+      quaternion.RotateY(math.radians(270f))
+    };
+
+    var targetRotation = quaternions[nextStep];
+    ApplyRotationToEntities(nextStep, targetRotation);
   }
 
-  /// <summary>
-  /// Moves the slot machine to a new position
-  /// </summary>
-  /// <param name="newPosition">New position for the slot machine</param>
+  private int GetCurrentRotationStepFromEntity() {
+    if (!Slot.Exists()) {
+      return 0;
+    }
+
+    var tilePosition = Slot.Read<TilePosition>();
+    var tileRotation = tilePosition.TileRotation;
+
+    return tileRotation switch {
+      TileRotation.None => 0,
+      TileRotation.Clockwise_90 => 1,
+      TileRotation.Clockwise_180 => 2,
+      TileRotation.Clockwise_270 => 3,
+      _ => 0
+    };
+  }
+
   public void MoveSlot(float3 newPosition) {
     if (IsRunning) {
       return;
@@ -529,20 +508,21 @@ internal class SlotModel {
     var adjustedPosition = AdjustPosition(newPosition);
     Position = adjustedPosition;
 
-    // Move the main slot entity
     if (Slot.Exists()) {
       Slot.SetPosition(adjustedPosition);
     }
 
-    // Move and reposition the slot chest with current rotation
     if (SlotChest.Exists()) {
       var rotatedChestPos = adjustedPosition + math.mul(Rotation, SlotChestOffset);
       SlotChest.SetPosition(rotatedChestPos);
     }
 
-    // Move the lamp entity (positioned at same location as slot)
     if (Lamp.Exists()) {
       Lamp.SetPosition(adjustedPosition);
+    }
+
+    if (Dummy.Exists()) {
+      Dummy.SetPosition(adjustedPosition);
     }
   }
 }
