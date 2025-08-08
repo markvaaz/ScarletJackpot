@@ -1,3 +1,4 @@
+using ProjectM;
 using ScarletCore.Services;
 using ScarletJackpot.Services;
 using VampireCommandFramework;
