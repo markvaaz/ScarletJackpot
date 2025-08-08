@@ -259,11 +259,14 @@ internal class SlotGameLogic {
       nextFrameSpeed = frameSpeed + 1;
     }
 
-    BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.SlotGameBuff);
-    BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.SlotGameBuff);
-
-    _currentLampColor = (byte)((_currentLampColor + 1) % LAMP_COLOR_COUNT);
-    _slotModel.ChangeLampColor(_currentLampColor);
+    if (SOUND_ENABLED) {
+      BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.SlotGameBuff);
+      BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.SlotGameBuff);
+    }
+    if (ANIMATION_ENABLED) {
+      _currentLampColor = (byte)((_currentLampColor + 1) % LAMP_COLOR_COUNT);
+      _slotModel.ChangeLampColor(_currentLampColor);
+    }
 
     ActionScheduler.DelayedFrames(() => {
       AnimateColumnWithDelay(column, iteration + 1, nextFrameSpeed, columnIndex);
@@ -377,10 +380,15 @@ internal class SlotGameLogic {
     StopLampColorAnimation();
 
     var wins = DetectWins();
-    var raghandsWin = wins.ContainsValue(new PrefabGUID(1216450741));
+    var raghandsWin = wins.ContainsValue(RAGHANDS_PREFAB);
+
 
     if (raghandsWin) {
       ClearWinIndicators();
+      if (SOUND_ENABLED) {
+        BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.RuggedHandsStealBuff);
+        BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.RuggedHandsStealBuff);
+      }
     } else if (wins.Count > 0) {
       AddWinIndicators(wins);
       DeliverWinRewards(wins);
@@ -391,7 +399,6 @@ internal class SlotGameLogic {
     _plannedWins.Clear();
     _columnPlacementCounter.Clear();
     _hasPlannedResults = false;
-
 
     _slotModel.OnAnimationFinished();
   }
@@ -470,13 +477,13 @@ internal class SlotGameLogic {
     if (player == Entity.Null || !player.Exists() || !player.Has<PlayerCharacter>()) {
       return;
     }
-
-    BuffService.TryApplyBuff(player, Buffs.VictoryVoiceLineBuff);
-
-    BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.VictorySlotBuff);
-    BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.VictorySlotBuff);
-
-
+    if (VOICE_LINE_ENABLED) {
+      BuffService.TryApplyBuff(player, Buffs.VictoryVoiceLineBuff);
+    }
+    if (SOUND_ENABLED) {
+      BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.VictorySlotBuff);
+      BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.VictorySlotBuff);
+    }
     var playerData = player.GetPlayerData();
     var betAmount = SlotService.GetBetAmount(playerData.PlatformId);
     var betMultiplier = CalculateBetMultiplier(betAmount);
