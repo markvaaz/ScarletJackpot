@@ -21,26 +21,24 @@ internal class SlotGameLogic {
   private const int ANIMATION_STOP_ITERATIONS = 75;
   private const int DELAYED_FRAMES = 10;
   private const int COLUMN_START_DELAY = 5;
-  private const int LAMP_COLOR_COUNT = 10; // Cores de 0 a 9
-  private const int LAMP_COLOR_CHANGE_FREQUENCY = 3; // Mudar cor a cada 3 iterações
+  private const int LAMP_COLOR_COUNT = 10;
+  private const int LAMP_COLOR_CHANGE_FREQUENCY = 3;
 
   private readonly int[] _itemColumns = [1, 3, 5];
   private readonly SlotModel _slotModel;
 
-  // Game state
+
   private Dictionary<int, PrefabGUID> _plannedWins = new();
-  private PrefabGUID[,] _finalResults = new PrefabGUID[3, 3]; // [row, column] - matriz 3x3 final
-  private readonly Dictionary<int, int> _columnPlacementCounter = []; // Rastrear qual linha estamos preenchendo por coluna
+  private PrefabGUID[,] _finalResults = new PrefabGUID[3, 3];
+  private readonly Dictionary<int, int> _columnPlacementCounter = [];
   private bool _hasPlannedResults = false;
 
-  // Lamp color animation state
+
   private byte _currentLampColor = 0;
 
   public SlotGameLogic(SlotModel slotModel) {
     _slotModel = slotModel ?? throw new ArgumentNullException(nameof(slotModel));
   }
-
-  #region Public Game Control Methods
 
   public void StartAnimation() {
     ClearWinIndicators();
@@ -60,7 +58,7 @@ internal class SlotGameLogic {
   }
 
   public void PopulateSlots() {
-    // Parar animação das cores da lâmpada se estiver rodando
+
     StopLampColorAnimation();
 
     var random = new Random();
@@ -75,10 +73,6 @@ internal class SlotGameLogic {
       }
     }
   }
-
-  #endregion
-
-  #region Animation Logic
 
   private void PrepareSlotResults() {
     _plannedWins.Clear();
@@ -223,14 +217,10 @@ internal class SlotGameLogic {
     return WeightedRandomSelector.SelectItem(weightedWinItems, random);
   }
 
-  #region Lamp Color Animation
-
   private void StopLampColorAnimation() {
     _currentLampColor = 0;
     _slotModel.ChangeLampColor(_currentLampColor);
   }
-
-  #endregion
 
   private void StartStaggeredAnimation() {
     for (int i = 0; i < _itemColumns.Length; i++) {
@@ -382,12 +372,8 @@ internal class SlotGameLogic {
     return WeightedRandomSelector.SelectItem(availableItems, random);
   }
 
-  #endregion
-
-  #region Win Detection and Rewards
-
   private void ProcessSlotResults() {
-    // Parar animação das cores da lâmpada
+
     StopLampColorAnimation();
 
     var wins = DetectWins();
@@ -406,7 +392,7 @@ internal class SlotGameLogic {
     _columnPlacementCounter.Clear();
     _hasPlannedResults = false;
 
-    // Notify slot model that animation finished
+
     _slotModel.OnAnimationFinished();
   }
 
@@ -430,11 +416,9 @@ internal class SlotGameLogic {
       int leftSlotIndex = row * TOTAL_COLUMNS + 0;
       int rightSlotIndex = row * TOTAL_COLUMNS + 6;
 
-      // Forçar remoção completa dos slots de indicadores
       InventoryService.RemoveItemAtSlot(_slotModel.SlotChest, leftSlotIndex);
       InventoryService.RemoveItemAtSlot(_slotModel.SlotChest, rightSlotIndex);
 
-      // Garantir que os slots ficam vazios
       var inventoryBuffer = InventoryService.GetInventoryItems(_slotModel.SlotChest);
       if (leftSlotIndex < inventoryBuffer.Length) {
         var leftItem = inventoryBuffer[leftSlotIndex];
@@ -487,12 +471,12 @@ internal class SlotGameLogic {
       return;
     }
 
-    BuffService.TryApplyBuff(player, Buffs.VictoryVoiceLineBuff); // 5 segundos de duração
+    BuffService.TryApplyBuff(player, Buffs.VictoryVoiceLineBuff);
 
-    BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.VictorySlotBuff); // Efeito visual no slot
-    BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.VictorySlotBuff); // Efeito visual no slot
+    BuffService.TryApplyBuff(_slotModel.Dummy, Buffs.VictorySlotBuff);
+    BuffService.TryRemoveBuff(_slotModel.Dummy, Buffs.VictorySlotBuff);
 
-    // Obter valor da aposta do jogador para calcular multiplicador
+
     var playerData = player.GetPlayerData();
     var betAmount = SlotService.GetBetAmount(playerData.PlatformId);
     var betMultiplier = CalculateBetMultiplier(betAmount);
@@ -504,12 +488,10 @@ internal class SlotGameLogic {
       if (prize.Prefab != 0 && prize.Amount > 0) {
         var prizeGuid = new PrefabGUID(prize.Prefab);
 
-        // Aplicar multiplicador e arredondar para cima
         var multipliedAmount = prize.Amount * betMultiplier;
         var finalAmount = (int)Math.Ceiling(multipliedAmount);
 
         try {
-          // Usar AddItem para entregar ao jogador (não precisa de slot específico)
           InventoryService.AddItem(player, prizeGuid, finalAmount);
         } catch (Exception ex) {
           Log.Error($"Error delivering prize to player: {ex.Message}");
@@ -527,21 +509,15 @@ internal class SlotGameLogic {
     var maxBet = SPIN_MAX_AMOUNT;
     var maxMultiplier = MAX_BET_MULTIPLIER;
 
-    // Evitar divisão por zero se min == max
     if (minBet >= maxBet) {
       return 1.0f;
     }
 
-    // Escala linear: 1x no mínimo, maxMultiplier no máximo
     var ratio = (float)(betAmount - minBet) / (maxBet - minBet);
-    ratio = Math.Max(0f, Math.Min(1f, ratio)); // Clamp entre 0 e 1
+    ratio = Math.Max(0f, Math.Min(1f, ratio));
 
     return 1.0f + (ratio * (maxMultiplier - 1.0f));
   }
-
-  #endregion
-
-  #region Population Methods
 
   private Dictionary<int, HashSet<PrefabGUID>> InitializeUsedItemsPerColumn() {
     var usedPerColumn = new Dictionary<int, HashSet<PrefabGUID>>();
@@ -569,6 +545,4 @@ internal class SlotGameLogic {
     InventoryService.AddWithMaxAmount(_slotModel.SlotChest, prefabguid, slotIndex, 1, 1);
     SlotModel.SetAllItemsMaxAmount(_slotModel.SlotChest, 1);
   }
-
-  #endregion
 }
