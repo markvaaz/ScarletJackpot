@@ -382,7 +382,6 @@ internal class SlotGameLogic {
     var wins = DetectWins();
     var raghandsWin = wins.ContainsValue(RAGHANDS_PREFAB);
 
-
     if (raghandsWin) {
       ClearWinIndicators();
       if (SOUND_ENABLED) {
