@@ -209,6 +209,7 @@ internal class SlotModel {
     BuffService.TryApplyBuff(Dummy, Buffs.Invulnerable, -1);
     BuffService.TryApplyBuff(Dummy, Buffs.Invisibility, -1);
     BuffService.TryApplyBuff(Dummy, Buffs.Immaterial, -1);
+    BuffService.TryApplyBuff(Dummy, Buffs.DisableAggro, -1);
   }
 
   private void CreateSlotEntity(float3 position) {
