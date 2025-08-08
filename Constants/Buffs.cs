@@ -9,5 +9,7 @@ internal static class Buffs {
   public static readonly PrefabGUID Invisibility = new(1880224358);
   public static readonly PrefabGUID VictoryVoiceLineBuff = new(503680755);
   public static readonly PrefabGUID VictorySlotBuff = new(-992614152); // Example GUID, replace with actual if needed
+  public static readonly PrefabGUID SlotInteractBuff = new(1405487786);
   public static readonly PrefabGUID SlotGameBuff = new(1723455773);
+  public static readonly PrefabGUID RuggedHandsStealBuff = new(-1641592767);
 }
