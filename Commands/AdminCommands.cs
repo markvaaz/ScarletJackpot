@@ -40,7 +40,6 @@ public static class AdminCommands {
       return;
     }
 
-    // Get slot machine closest to player's cursor position
     var slot = SlotService.GetSlotFromPlayerCursor(player.CharacterEntity, 5f);
     if (slot == null) {
       ctx.Reply("No slot machine found near cursor. Please aim closer to a slot machine (within 5 units).".FormatError());
@@ -52,7 +51,6 @@ public static class AdminCommands {
       return;
     }
 
-    // Normalize steps to 0-3 range
     steps = ((steps % 4) + 4) % 4;
 
     slot.RotateSlot(steps);
@@ -74,7 +72,6 @@ public static class AdminCommands {
       return;
     }
 
-    // Get closest slot machine to player
     var slot = SlotService.GetClosestSlot(player.Position, 15f);
     if (slot == null) {
       ctx.Reply("No slot machine found within 15 units of your position.".FormatError());
@@ -86,7 +83,6 @@ public static class AdminCommands {
       return;
     }
 
-    // Normalize steps to 0-3 range
     steps = ((steps % 4) + 4) % 4;
 
     slot.RotateSlot(steps);
@@ -108,7 +104,6 @@ public static class AdminCommands {
       return;
     }
 
-    // First try to get slot from cursor position
     var slot = SlotService.GetSlotFromPlayerCursor(player.CharacterEntity, 5f);
     if (slot != null) {
       if (slot.IsRunning) {
@@ -124,7 +119,6 @@ public static class AdminCommands {
       return;
     }
 
-    // Fallback to hovered entity if no slot found near cursor
     player.CharacterEntity.With((ref EntityInput entityInput) => {
       var hoveredEntity = entityInput.HoveredEntity;
 
@@ -150,10 +144,8 @@ public static class AdminCommands {
       return;
     }
 
-    // Try to get slot from cursor position first
     var slot = SlotService.GetSlotFromPlayerCursor(playerData.CharacterEntity, 5f);
     if (slot == null) {
-      // Fallback to hovered entity
       var hoveredEntity = playerData.CharacterEntity.Read<EntityInput>().HoveredEntity;
       if (!hoveredEntity.Exists()) {
         ctx.Reply($"Please aim at the slot machine you want to move.".FormatError());
@@ -178,27 +170,16 @@ public static class AdminCommands {
       if (inp.State.InputsDown == SyncedButtonInputAction.Primary) {
         end();
         _selectedActions.Remove(playerData);
-
-        // Update slot position and move entities
-        var newPosition = inp.AimPosition;
-        slot.MoveSlot(newPosition);
-
         ctx.Reply("Slot machine moved.".FormatSuccess());
         return;
       }
-
-      // Preview position - move entities to cursor position
-      var previewPosition = inp.AimPosition;
-      if (slot.Slot.Exists()) {
-        slot.Slot.SetPosition(previewPosition);
+      if (inp.State.InputsDown == SyncedButtonInputAction.OffensiveSpell) {
+        slot.RotateOneStep();
       }
-      if (slot.SlotChest.Exists()) {
-        var rotatedChestPos = previewPosition + math.mul(slot.Rotation, slot.SlotChestOffset);
-        slot.SlotChest.SetPosition(rotatedChestPos);
-      }
+      var newPosition = inp.AimPosition;
+      slot.MoveSlot(newPosition);
     });
 
-    // Auto-cancel after 3 minutes
     ActionScheduler.Delayed(() => {
       if (!_selectedActions.ContainsKey(playerData)) return;
       ActionScheduler.CancelAction(_selectedActions[playerData]);
