@@ -45,7 +45,7 @@ internal class SlotModel {
   }
 
   public SlotModel(Entity slotEntity) {
-    if (slotEntity == Entity.Null || !slotEntity.Has<NameableInteractable>()) {
+    if (slotEntity == Entity.Null || !slotEntity.Has<UserMapZonePackedRevealElement>()) {
       return;
     }
 
@@ -107,24 +107,15 @@ internal class SlotModel {
     if (player == Entity.Null || !player.Has<PlayerCharacter>()) return false;
 
     var interactor = player.Read<Interactor>();
-    return BuffService.HasBuff(player, SlotInteractBuff) && interactor.Target != Entity.Null && interactor.Target == SlotChest;
+    return BuffService.HasBuff(player, Buffs.SlotInteractBuff) && interactor.Target != Entity.Null && interactor.Target == SlotChest;
   }
 
   public bool SetCurrentPlayer(Entity player) {
     if (IsRunning && player != CurrentPlayer) {
-      Log.Info(1);
       return false;
     }
 
-    if (CurrentPlayer == Entity.Null) {
-      Log.Info(2);
-      CurrentPlayer = player;
-      StartSpinTimeout();
-      return true;
-    }
-
-    if (!IsPlayerInteracting(CurrentPlayer)) {
-      Log.Info(3);
+    if (CurrentPlayer == Entity.Null || !IsPlayerInteracting(CurrentPlayer)) {
       CurrentPlayer = player;
       StartSpinTimeout();
       return true;
@@ -136,8 +127,6 @@ internal class SlotModel {
       }
       return true;
     }
-
-    Log.Info(5);
 
     return false;
   }
@@ -171,7 +160,7 @@ internal class SlotModel {
       }
 
       playerData.SendMessage($"Slot machine timedout.".FormatError());
-      BuffService.TryRemoveBuff(CurrentPlayer, SlotInteractBuff);
+      BuffService.TryRemoveBuff(CurrentPlayer, Buffs.SlotInteractBuff);
     }
 
     ClearCurrentPlayer();
