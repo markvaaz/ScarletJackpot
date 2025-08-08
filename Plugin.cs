@@ -58,10 +58,15 @@ public class Plugin : BasePlugin {
   }
 
   public static void ReloadSettings() {
-    Settings.Dispose();
     LoadSettings();
   }
   public static void LoadSettings() {
+    Settings.Section("General")
+      .Add("EnableAnimation", true, "Enable slot machine lighting animations.")
+      .Add("EnableSound", true, "Enable slot machine sound effects.")
+      .Add("EnableWinVoiceLine", true, "Enable voice line when player wins.")
+      .Add("EnableRuggedHands", true, "If enabled, the Rugged Hands item will steal the current prizes from the slot machine (if any). (1% chance)");
+
     Settings.Section("Spin Cost")
       .Add("CostPrefabGUID", 862477668, "The PrefabGUID of the item to be consumed for each spin.")
       .Add("MinAmount", 100, "The minimum amount of the item to be consumed for each spin.")
@@ -86,8 +91,5 @@ public class Plugin : BasePlugin {
       .Add("MagicAmount", 0, "The amount of items given for a row of magic stones.")
       .Add("DemonFragment", 0, "The PrefabGUID of the prize item for a row of demon fragments (JACKPOT).")
       .Add("DemonAmount", 0, "The amount of items given for a row of demon fragments.");
-
-    Settings.Section("Rugged Hands")
-      .Add("EnableRuggedHands", true, "If enabled, the Rugged Hands item will steal the current prizes from the slot machine (if any). (1% chance)");
   }
 }
