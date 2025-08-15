@@ -39,9 +39,11 @@
 - `.slot remove` — Removes the slot machine near your cursor
 - `.slot move` — Allows you to move a slot machine by aiming and clicking
 
+
 ## Configuration
 
 All prize items, amounts, spin cost, bet limits, RTP, and special events are configurable via the mod's settings file.
+**Important:** The mod does not include default configuration values for bet items or prizes. You must manually define all required settings before using the slot machine, otherwise it will not function (no bet item or prize will be available).
 
 ## Installation
 
