@@ -13,9 +13,7 @@ internal static class Constants {
   public const string SlotId = "__ScarletJackpot.Slot__";
   public static int SPIN_MIN_AMOUNT => Plugin.Settings.Get<int>("MinAmount");
   public static int SPIN_MAX_AMOUNT => Plugin.Settings.Get<int>("MaxAmount");
-  public static float RTP_RATE => Plugin.Settings.Get<float>("RTPRate");
   public static float BASE_WIN_CHANCE => Plugin.Settings.Get<float>("BaseWinChance");
-  public static bool ENABLE_RTP_CONTROL => Plugin.Settings.Get<bool>("EnableRTPControl");
   public static float MAX_BET_MULTIPLIER => Plugin.Settings.Get<float>("MaxBetMultiplier");
   public static bool ANIMATION_ENABLED => Plugin.Settings.Get<bool>("EnableAnimation");
   public static bool SOUND_ENABLED => Plugin.Settings.Get<bool>("EnableSound");
