@@ -1,6 +1,18 @@
 # ScarletJackpot
 
-**ScarletJackpot** is a V Rising mod that adds a slot machine system to the game. Admins can place, move, rotate, and remove slot machines. Players can set their bet amount and interact with the machines to win configurable prizes.
+**ScarletJackpot** is a V Rising mod that adds a slot machine system to the game.
+
+## Support & Donations
+
+<a href="https://www.patreon.com/bePatron?u=30093731" data-patreon-widget-type="become-patron-button"><img height='36' style='border:0px;height:36px;' src='https://i.imgur.com/o12xEqi.png' alt='Become a Patron' /></a>  <a href='https://ko-fi.com/F2F21EWEM7' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' alt='Buy Me a Coffee at ko-fi.com' /></a>
+
+---
+
+## Real Money Trading (RMT) Notice
+
+ScarletJackpot is designed only for fun with in-game items.
+Please don’t use it for real money trades or connect it to external gambling systems, as this could break the V Rising EULA and community rules.
+Server owners are responsible for ensuring their use of the mod follows the game’s terms.
 
 ## How It Works
 
@@ -11,7 +23,7 @@
 - The prize received is multiplied according to the bet amount and the configured maximum multiplier (`MaxBetMultiplier`). Higher bets yield higher rewards, up to the defined maximum.
 - The mod supports RTP (Return to Player) control, allowing server owners to balance win rates.
 - Optional animations and sound effects for spins and wins.
-- The rare "Rugged Hands" event (if enabled) can steal all prizes from the player when triggered.
+- The rare "Rag Hands" event (if enabled) can steal the current winnings from the slot machine when triggered (it does not steal all previous winnings, only the current spin's prizes).
 
 ## Features
 
@@ -20,7 +32,7 @@
 - Prize pool and win multipliers are fully customizable
 - RTP (Return to Player) control for balancing
 - Optional animations and sound effects
-- Rugged Hands event: rare chance to lose all prizes on a win
+- Rag Hands event: rare chance to lose the current spin's prizes
 - Reload and clear all slot machines with admin commands
 
 ## Commands
@@ -43,7 +55,7 @@
 ## Configuration
 
 All prize items, amounts, spin cost, bet limits, RTP, and special events are configurable via the mod's settings file.
-**Important:** The mod does not include default configuration values for bet items or prizes. You must manually define all required settings before using the slot machine, otherwise it will not function (no bet item or prize will be available).
+**Important:** The mod does not include default configuration values for bet items or prizes. You must manually define all required settings before using the slot machine, otherwise it will not function.
 
 ## Installation
 
