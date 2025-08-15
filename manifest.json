@@ -1,0 +1,10 @@
+{
+  "name": "ScarletJackpot",
+  "version_number": "1.0.0",
+  "website_url": "https://github.com/markvaaz/ScarletJackpot",
+  "description": "Spin, win, or get trolled by Rag Hands! Add slot machines to V Rising, bet your loot, and let luck (or mischief) decide your fate.",
+  "dependencies": [
+    "BepInEx-BepInExPack_V_Rising-1.733.2",
+    "ScarletMods-ScarletCore-1.1.20"
+  ]
+}
