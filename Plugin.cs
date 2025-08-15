@@ -20,7 +20,6 @@ public class Plugin : BasePlugin {
   public static Plugin Instance { get; private set; }
   public static ManualLogSource LogInstance { get; private set; }
   public static Settings Settings { get; private set; }
-  public static Database Database { get; private set; }
 
   public override void Load() {
     Instance = this;
@@ -31,16 +30,15 @@ public class Plugin : BasePlugin {
     _harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
     _harmony.PatchAll(Assembly.GetExecutingAssembly());
 
+    Settings = new Settings(MyPluginInfo.PLUGIN_GUID, Instance);
+    LoadSettings();
+
     if (GameSystems.Initialized) {
       OnInitialized(null, null);
     } else {
       EventManager.OnInitialize += OnInitialized;
     }
 
-    Settings = new Settings(MyPluginInfo.PLUGIN_GUID, Instance);
-    Database = new Database(MyPluginInfo.PLUGIN_GUID);
-
-    LoadSettings();
     CommandRegistry.RegisterAll();
   }
 
@@ -62,6 +60,7 @@ public class Plugin : BasePlugin {
   }
   public static void LoadSettings() {
     Settings.Section("General")
+      .Add("BaseWinChance", 0.05f, "Base chance for winning lines (0.0 to 1.0). Higher values = more wins.")
       .Add("EnableAnimation", true, "Enable slot machine lighting animations.")
       .Add("EnableSound", true, "Enable slot machine sound effects.")
       .Add("EnableWinVoiceLine", true, "Enable voice line when player wins.")
@@ -72,11 +71,6 @@ public class Plugin : BasePlugin {
       .Add("MinAmount", 100, "The minimum amount of the item to be consumed for each spin.")
       .Add("MaxAmount", 1000, "The maximum amount of the item to be consumed for each spin.")
       .Add("MaxBetMultiplier", 3f, "Maximum prize multiplier. Min bet = 1x multiplier, Max bet = this value. Example: 3.0 means max bet gives 3x more prizes than min bet.");
-
-    Settings.Section("RTP Control")
-      .Add("RTPRate", 0.85f, "Return to Player rate (0.0 to 1.0). Higher values = more player-friendly.")
-      .Add("BaseWinChance", 0.15f, "Base chance for winning lines (0.0 to 1.0). Higher values = more wins.")
-      .Add("EnableRTPControl", true, "Enable sophisticated RTP control system for casino-like behavior.");
 
     Settings.Section("Prize Pool")
       .Add("Fish", 0, "The PrefabGUID of the prize item for a row of fish.")
