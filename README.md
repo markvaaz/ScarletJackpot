@@ -1,140 +1,68 @@
 # ScarletJackpot
 
-A modular .NET template for creating V Rising mods with optional dependencies.
+**ScarletJackpot** is a V Rising mod that adds a slot machine system to the game. Admins can place, move, rotate, and remove slot machines. Players can set their bet amount and interact with the machines to win configurable prizes.
 
-## 🚀 Quick Start
+## How It Works
 
-### Installation
+- Slot machines are created by admins and placed in the world.
+- Players can set their bet amount using `.slot bet <amount>` or simply drag the desired quantity of items into the slot machine's inventory.
+- Each spin consumes items (configurable) and can award prizes based on the result.
+- Prize items and amounts for each winning line are fully configurable.
+- The prize received is multiplied according to the bet amount and the configured maximum multiplier (`MaxBetMultiplier`). Higher bets yield higher rewards, up to the defined maximum.
+- The mod supports RTP (Return to Player) control, allowing server owners to balance win rates.
+- Optional animations and sound effects for spins and wins.
+- The rare "Rugged Hands" event (if enabled) can steal all prizes from the player when triggered.
 
-Install the template from NuGet:
+## Features
 
-```bash
-dotnet new install ScarletJackpot
-```
+- Slot machine creation, movement, rotation, and removal by admins
+- Configurable bet amount and spin cost for players
+- Prize pool and win multipliers are fully customizable
+- RTP (Return to Player) control for balancing
+- Optional animations and sound effects
+- Rugged Hands event: rare chance to lose all prizes on a win
+- Reload and clear all slot machines with admin commands
 
-### Usage
+## Commands
 
-Create a new V Rising mod project:
+### Player Commands
 
-```bash
-# Basic mod with ScarletCore only
-dotnet new scarletjackpot -n MyMod
+- `.slot bet <amount>` — Sets your bet amount for the slot machine
 
-# With VampireCommandFramework support
-dotnet new scarletjackpot -n MyMod --use_vcf
+### Admin Commands
 
-# With ScarletRCON soft integration
-dotnet new scarletjackpot -n MyMod --use_vcf --use_rcon_soft
+- `.slot create` — Creates a slot machine at your position
+- `.slot reload` — Reloads slot machine settings
+- `.slot iwanttoremoveeverything` — Removes all slot machines
+- `.slot rotate <steps>` — Rotates the slot machine near your cursor (steps: 1, 2, 3, 4)
+- `.slot rotateclosest <steps>` — Rotates the closest slot machine to you (steps: 1, 2, 3, 4)
+- `.slot remove` — Removes the slot machine near your cursor
+- `.slot move` — Allows you to move a slot machine by aiming and clicking
 
-# With ScarletRCON full integration
-dotnet new scarletjackpot -n MyMod --use_vcf --use_rcon_hard
-```
+## Configuration
 
-## 📦 What's Included
+All prize items, amounts, spin cost, bet limits, RTP, and special events are configurable via the mod's settings file.
 
-### Core Dependencies (Always Included)
-- **ScarletCore**: Core framework for V Rising mods
-- **BepInEx**: Mod framework for Unity games
-- **VRising.Unhollowed.Client**: V Rising game bindings
+## Installation
 
-### Optional Dependencies
-- **VampireCommandFramework** (`--use_vcf`): Command system for in-game commands
-- **ScarletRCON** (`--use_rcon_soft` / `--use_rcon_hard`): Remote console integration
+### Requirements
 
-## 🛠️ Template Options
+* **[BepInEx](https://wiki.vrisingmods.com/user/bepinex_install.html)**
+* **[ScarletCore](https://thunderstore.io/c/v-rising/p/ScarletMods/ScarletCore/)**
+* **[VampireCommandFramework](https://thunderstore.io/c/v-rising/p/deca/VampireCommandFramework/)**
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--use_vcf` | Include VampireCommandFramework dependency | `false` |
-| `--use_rcon_soft` | Include ScarletRCON with soft integration | `false` |
-| `--use_rcon_hard` | Include ScarletRCON with full integration | `false` |
+Make sure BepInEx is installed before installing ScarletJackpot.
 
-## 📁 Generated Project Structure
+### Manual Installation
 
-```
-MyMod/
-├── MyMod.csproj           # Project file with conditional dependencies
-├── MyMod.sln              # Solution file
-├── Plugin.cs              # Main plugin class with conditional code
-├── MyPluginInfo.cs        # Auto-generated plugin metadata
-├── nuget.config           # NuGet sources (BepInEx, Samboy Feed)
-└── LICENSE                # MIT License
-```
+1. Download the latest release of **ScarletJackpot**.
+2. Extract the contents into `BepInEx/plugins`:
+   `<V Rising Server Directory>/BepInEx/plugins/`
+   The directory should contain:
+   `BepInEx/plugins/ScarletJackpot.dll`
+3. Ensure **ScarletCore** and **VampireCommandFramework** are also installed.
+4. Restart your server.
 
-## 💡 Examples
+## Credits
 
-### Basic Plugin
-```csharp
-[BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
-[BepInDependency("markvaaz.ScarletCore")]
-public class Plugin : BasePlugin
-{
-    public override void Load()
-    {
-        Log.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} loaded!");
-    }
-}
-```
-
-### With VCF Commands (when `--use_vcf` is used)
-```csharp
-[CommandGroup("mymod")]
-public class MyCommands
-{
-    [Command("hello", "Say hello")]
-    public static void HelloCommand(CommandContext context)
-    {
-        context.Reply("Hello from my mod!");
-    }
-}
-```
-
-### With RCON Support (when `--use_rcon_*` is used)
-```csharp
-[RconCommandCategory("mymod")]
-public class MyRconCommands
-{
-    [RconCommand("status", "Get mod status")]
-    public static string StatusCommand()
-    {
-        return "Mod is running!";
-    }
-}
-```
-
-## 🔧 Development
-
-### Prerequisites
-- .NET 6.0 SDK or later
-- V Rising Dedicated Server (for testing)
-
-### Building
-```bash
-dotnet build
-```
-
-### Installation Path
-The template automatically copies built mods to:
-```
-C:\Program Files (x86)\Steam\steamapps\common\VRisingDedicatedServer\BepInEx\plugins
-```
-
-## 📋 Requirements
-
-- .NET 6.0+
-- V Rising Dedicated Server
-- BepInEx 6.0+
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 🔗 Links
-
-- [V Rising](https://store.steampowered.com/app/1604030/V_Rising/)
-- [BepInEx](https://github.com/BepInEx/BepInEx)
-- [VampireCommandFramework](https://github.com/decaprime/VampireCommandFramework)
-- [ScarletCore](https://github.com/markvaaz/ScarletCore)
+- **cheesasaurus, EduardoG, Helskog, Mitch, SirSaia, Odjit** & the [V Rising Mod Community on Discord](https://vrisingmods.com/discord)
