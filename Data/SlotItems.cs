@@ -45,10 +45,6 @@ internal static class SlotItems {
 
   // Nova função para controlar probabilidade de vitória
   public static bool ShouldFormWinningLine(PrefabGUID item, Random random) {
-    if (!ENABLE_RTP_CONTROL) {
-      return true; // Se RTP está desabilitado, sempre permitir vitórias
-    }
-
     if (!WinMultipliers.TryGetValue(item, out float multiplier)) {
       multiplier = 1.0f; // Default
     }

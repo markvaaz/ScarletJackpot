@@ -56,6 +56,8 @@ internal class SlotModel {
     }
 
     _gameLogic = new SlotGameLogic(this);
+    InventoryService.ClearInventory(SlotChest);
+    _gameLogic.PopulateSlots();
   }
 
   public bool HasCurrentPlayer() => CurrentPlayer != Entity.Null;
