@@ -67,9 +67,9 @@ public class Plugin : BasePlugin {
       .Add("EnableRuggedHands", true, "If enabled, the Rugged Hands item will steal the current prizes from the slot machine (if any). (1% chance)");
 
     Settings.Section("Spin Cost")
-      .Add("CostPrefabGUID", 862477668, "The PrefabGUID of the item to be consumed for each spin.")
+      .Add("CostPrefabGUID", 0, "The PrefabGUID of the item to be consumed for each spin.")
       .Add("MinAmount", 100, "The minimum amount of the item to be consumed for each spin.")
-      .Add("MaxAmount", 1000, "The maximum amount of the item to be consumed for each spin.")
+      .Add("MaxAmount", 300, "The maximum amount of the item to be consumed for each spin.")
       .Add("MaxBetMultiplier", 3f, "Maximum prize multiplier. Min bet = 1x multiplier, Max bet = this value. Example: 3.0 means max bet gives 3x more prizes than min bet.");
 
     Settings.Section("Prize Pool")
