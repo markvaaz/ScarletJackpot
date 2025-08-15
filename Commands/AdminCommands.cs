@@ -7,7 +7,6 @@ using ScarletJackpot.Models;
 using ScarletJackpot.Services;
 using VampireCommandFramework;
 using Unity.Entities;
-using Unity.Mathematics;
 using ProjectM;
 using ScarletJackpot.Constants;
 
@@ -31,6 +30,7 @@ public static class AdminCommands {
   [Command("reload", adminOnly: true)]
   public static void ReloadSlots(ChatCommandContext ctx) {
     Plugin.LoadSettings();
+    SlotService.Initialize();
     foreach (var slot in SlotService.FromSlot) {
       BuffService.TryRemoveBuff(slot.Value.CurrentPlayer, Buffs.SlotInteractBuff);
     }
