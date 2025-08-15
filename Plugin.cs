@@ -70,7 +70,7 @@ public class Plugin : BasePlugin {
       .Add("CostPrefabGUID", 0, "The PrefabGUID of the item to be consumed for each spin.")
       .Add("MinAmount", 100, "The minimum amount of the item to be consumed for each spin.")
       .Add("MaxAmount", 300, "The maximum amount of the item to be consumed for each spin.")
-      .Add("MaxBetMultiplier", 3f, "Maximum prize multiplier. Min bet = 1x multiplier, Max bet = this value. Example: 3.0 means max bet gives 3x more prizes than min bet.");
+      .Add("MaxBetMultiplier", 3f, "Maximum prize multiplier. Min bet = 1x multiplier, Max bet = this value. Example: 3.0 means max bet gives 3x more prizes than min bet. It is recommended that the multiplier matches the ratio between min and max bet (e.g., if MinAmount is 100 and MaxAmount is 300, MaxBetMultiplier should be 3.0). If the multiplier does not match, players will always bet the minimum, as higher bets will not be worth it.");
 
     Settings.Section("Prize Pool")
       .Add("Fish", 0, "The PrefabGUID of the prize item for a row of fish.")
