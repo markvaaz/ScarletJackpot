@@ -182,7 +182,7 @@ internal class SlotModel {
   }
 
   private void CreateLampEntity(float3 position) {
-    Lamp = UnitSpawnerService.ImmediateSpawn(Spawnable.Lamp, position, 0f, 0f);
+    Lamp = SpawnerService.ImmediateSpawn(Spawnable.Lamp, position);
 
     if (Lamp != Entity.Null) {
       Lamp.With((ref EditableTileModel editableTileModel) => {
@@ -206,7 +206,7 @@ internal class SlotModel {
   }
 
   private void CreateDummyEntity(float3 position) {
-    Dummy = UnitSpawnerService.ImmediateSpawn(Spawnable.Dummy, position, 0f, 0f);
+    Dummy = SpawnerService.ImmediateSpawn(Spawnable.Dummy, position);
 
     BuffService.TryApplyBuff(Dummy, Buffs.Invulnerable, -1);
     BuffService.TryApplyBuff(Dummy, Buffs.Invisibility, -1);
@@ -215,7 +215,7 @@ internal class SlotModel {
   }
 
   private void CreateSlotEntity(float3 position) {
-    Slot = UnitSpawnerService.ImmediateSpawn(Spawnable.Slot, position, 0f, 0f);
+    Slot = SpawnerService.ImmediateSpawn(Spawnable.Slot, position);
     ConfigureSlotEntity();
   }
 
@@ -234,7 +234,7 @@ internal class SlotModel {
   private void CreateSlotChest(float3 position) {
     var oldSize = GetContainerSize(Spawnable.SlotChest);
     SetContainerSize(Spawnable.SlotChest, 21);
-    SlotChest = UnitSpawnerService.ImmediateSpawn(Spawnable.SlotChest, position + SlotChestOffset, 0f, 0f);
+    SlotChest = SpawnerService.ImmediateSpawn(Spawnable.SlotChest, position + SlotChestOffset);
     ConfigureSlotChest();
     SetContainerSize(Spawnable.SlotChest, oldSize);
   }

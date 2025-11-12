@@ -33,11 +33,7 @@ public class Plugin : BasePlugin {
     Settings = new Settings(MyPluginInfo.PLUGIN_GUID, Instance);
     LoadSettings();
 
-    if (GameSystems.Initialized) {
-      OnInitialized(null, null);
-    } else {
-      EventManager.OnInitialize += OnInitialized;
-    }
+    GameSystems.OnInitialize(OnInitialized);
 
     CommandRegistry.RegisterAll();
   }
@@ -50,8 +46,7 @@ public class Plugin : BasePlugin {
     return true;
   }
 
-  public static void OnInitialized(object _, object __) {
-    EventManager.OnInitialize -= OnInitialized;
+  public static void OnInitialized() {
     SlotService.Initialize();
   }
 
